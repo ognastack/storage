@@ -1,11 +1,9 @@
-from pydantic import BaseModel
+from pydantic import field_validator
 from typing import List, Optional
-import os
-
-from pydantic.v1 import validator
+from pydantic_settings import BaseSettings
 
 
-class Settings(BaseModel):
+class Settings(BaseSettings):
     # Basic settings
     PROJECT_NAME: str = "Ogna Storage"
     PROJECT_DESCRIPTION: str = "Ogna Stack Storage Service"
@@ -20,6 +18,12 @@ class Settings(BaseModel):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     ALGORITHM: str = "HS256"
 
+    # S3 CONFIG
+    STORAGE_TYPE: str = "S3"
+    S3_ACCESS_KEY: str = ''
+    S3_ENDPOINT_URL: str = ''
+    S3_SECRET_KEY: str = ''
+
     # CORS
     ALLOWED_HOSTS: List[str] = [
         "http://localhost:3000",
@@ -28,7 +32,8 @@ class Settings(BaseModel):
         "https://yourdomain.com",
     ]
 
-    @validator("ALLOWED_HOSTS", pre=True)
+    @field_validator("ALLOWED_HOSTS", mode="before")
+    @classmethod
     def assemble_cors_origins(cls, v):
         if isinstance(v, str) and not v.startswith("["):
             return [i.strip() for i in v.split(",")]
@@ -43,9 +48,11 @@ class Settings(BaseModel):
     LOG_LEVEL: str = "INFO"
     LOG_FORMAT: str = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 
-    class Config:
-        env_file = ".env"
-        case_sensitive = True
+    model_config = {
+        "env_file": ".env",
+        "case_sensitive": True,
+        "extra": "ignore"
+    }
 
 
 settings = Settings()

@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 
-from src.config.settings import settings
+from config.settings import settings
 from src.core.logging import setup_logging
 from src.core.middleware import setup_middleware
 from src.errors.handlers import setup_exception_handlers

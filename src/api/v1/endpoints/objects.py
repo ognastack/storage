@@ -1,20 +1,13 @@
-from fastapi import APIRouter, UploadFile, status, Body, HTTPException
-from typing import Annotated
-from src.application.S3 import S3StorageService
+from fastapi import APIRouter, UploadFile, status, HTTPException
+from src.application.manager import StorageManage
 from src.schema.response.storage import FileAccepted, MainResponse
-from src.schema.requests.storage import NewObject
 
 router = APIRouter()
 
 
 @router.post("/{bucket_name}", response_model=FileAccepted, status_code=status.HTTP_201_CREATED)
 async def upload_file(file: UploadFile, bucket_name: str):
-    storage = S3StorageService(
-        endpoint_url="http://localhost:9000",  # Example: MinIO endpoint
-        access_key="MfXp3q4DobACNTw6xYOL",
-        secret_key="xz2GJUyML5kcKqbWCPlrviANOdmE9ZRgpTehsj10",
-        bucket_name=bucket_name
-    )
+    storage = StorageManage(bucket_name=bucket_name).storage
     try:
         # Use the object_name from bucket_data or fallback to original filename
         object_name = file.filename
@@ -57,13 +50,7 @@ async def upload_file(file: UploadFile, bucket_name: str):
 
 @router.delete("/{bucket_name}/{file_name}", status_code=status.HTTP_200_OK, response_model=MainResponse)
 async def delete_file(bucket_name: str, file_name: str):
-    storage = S3StorageService(
-        endpoint_url="http://localhost:9000",  # Example: MinIO endpoint
-        access_key="MfXp3q4DobACNTw6xYOL",
-        secret_key="xz2GJUyML5kcKqbWCPlrviANOdmE9ZRgpTehsj10",
-        bucket_name=bucket_name
-    )
-
+    storage = StorageManage(bucket_name=bucket_name).storage
     try:
         success = storage.delete_file(object_name=file_name)
         return MainResponse(accepted=success)

@@ -2,7 +2,7 @@ import logging
 import sys
 from pathlib import Path
 from logging.handlers import RotatingFileHandler
-from src.config.settings import settings
+from config.settings import settings
 
 
 class ColoredFormatter(logging.Formatter):

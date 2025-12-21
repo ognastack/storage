@@ -4,11 +4,13 @@ from botocore.exceptions import ClientError
 from typing import Optional, BinaryIO
 import logging
 
+from src.application.types.storage import StorageAction
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-class S3StorageService:
+class S3StorageActions(StorageAction):
     """Service for storing files in S3-compatible storage."""
 
     def __init__(
