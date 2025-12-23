@@ -1,62 +1,43 @@
+import logging
 import uuid
-from fastapi import APIRouter, UploadFile, status, HTTPException, Depends
-from src.application.manager import StorageManage
+from typing import Annotated
+from fastapi import File, APIRouter, UploadFile, status, HTTPException, Depends, Path
+from src.application.manager import StorageManager
 from src.schema.response.storage import FileAccepted, MainResponse
-from src.database.database import DatabaseEngine
 from src.api.deps import get_current_user
 
 router = APIRouter()
 
 
 @router.post("/{bucket_name}", response_model=FileAccepted, status_code=status.HTTP_201_CREATED)
-async def upload_file(file: UploadFile, bucket_name: str, user_id: str = Depends(get_current_user)):
-    try:
+async def upload_file(
+        file: Annotated[UploadFile, File()],
+        bucket_name: Annotated[str, Path()],
+        user_id: uuid.UUID = Depends(get_current_user)
+):
+    logging.info(f"Uploading object {file.filename}")
+    manager = StorageManager(bucket_name=bucket_name)
 
-        engine = DatabaseEngine()
-        bucket = engine.get_bucket_by_id_user(
-            bucket_name=bucket_name,
-            owner_id=uuid.UUID(user_id)
-        )
+    url = manager.upload_file(
+        file=file,
+        current_user=user_id
+    )
+    logging.info(f"Object {file.filename} finalized")
 
-        if bucket is None:
-            raise Exception('Bucket not found')
-
-        object_name = file.filename
-
-        storage = StorageManage(bucket_name=str(bucket.id)).storage
-
-        storage.create_bucket(bucket_name)
-
-        success = storage.upload_fileobj(
-            file.file,
-            object_name
-        )
-
-        if not success:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to upload file"
-            )
-
-        return FileAccepted(
-            success=success,
-            url=storage.get_presigned_url(object_name)
-        )
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e)
-        )
+    return FileAccepted(
+        success=True,
+        url=url
+    )
 
 
-@router.delete("/{bucket_name}/{file_name}", status_code=status.HTTP_200_OK, response_model=MainResponse)
-async def delete_file(bucket_name: str, file_name: str):
-    storage = StorageManage(bucket_name=bucket_name).storage
-    try:
-        success = storage.delete_file(object_name=file_name)
-        return MainResponse(accepted=success)
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e)
-        )
+@router.delete("/{bucket_name}/{file_name}", status_code=status.HTTP_201_CREATED, response_model=MainResponse)
+async def delete_file(
+        bucket_name: str,
+        file_name: str,
+        user_id: uuid.UUID = Depends(get_current_user)
+):
+    deletion = StorageManager(bucket_name=bucket_name).delete_file(
+        file_name=file_name,
+        current_user=user_id
+    )
+    return MainResponse(accepted=deletion)

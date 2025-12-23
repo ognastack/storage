@@ -5,7 +5,6 @@ from sqlmodel import Field, SQLModel, UniqueConstraint
 class Bucket(SQLModel, table=True):
     __tablename__ = "bucket"
     __table_args__ = (
-        UniqueConstraint("owner", "name", name="unique_owner_bucket_name"),
         {"schema": "storage"},
     )
 

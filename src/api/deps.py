@@ -1,5 +1,6 @@
-from typing import Generator, Optional
-from fastapi import Depends, HTTPException, status, Request
+import uuid
+from typing import Optional
+from fastapi import Depends, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import JWTError, jwt
 
@@ -12,7 +13,7 @@ security = HTTPBearer()
 logger = logging.getLogger(__name__)
 
 
-def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
+def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)) -> uuid.UUID:
     """Get current authenticated user"""
     try:
 
@@ -29,12 +30,7 @@ def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(securit
     except JWTError:
         raise UnauthorizedError("Could not validate credentials")
 
-    # Here you would typically fetch user from database
-    # user = get_user_by_id(user_id)
-    # if user is None:
-    #     raise UnauthorizedError("User not found")
-
-    return user_id
+    return uuid.UUID(user_id)
 
 
 def get_request_id(request: Request) -> Optional[str]:

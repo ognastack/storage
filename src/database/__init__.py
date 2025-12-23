@@ -1,5 +1,4 @@
-
 from .storage.bucket import Bucket
-# Import all your other models here
+from .storage.objects import Objects
 
-__all__ = ["Bucket"]
+__all__ = ["Bucket", "Objects"]

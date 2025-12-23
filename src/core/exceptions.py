@@ -56,3 +56,10 @@ class InternalServerError(BaseAPIException):
 
     def __init__(self, message: str = "Internal server error"):
         super().__init__(message, status_code=500)
+
+
+class BucketNotFound(BaseAPIException):
+    """Bucket not found exception"""
+
+    def __init__(self, bucket_name: str):
+        super().__init__(f"Bucket {bucket_name} not found", status_code=404)
