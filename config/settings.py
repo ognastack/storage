@@ -24,6 +24,13 @@ class Settings(BaseSettings):
     S3_ENDPOINT_URL: str = ''
     S3_SECRET_KEY: str = ''
 
+    # Database
+    DATABASE_URL: str = ''
+    DATABASE_PORT: str = ''
+    DATABASE_USERNAME: str = ''
+    DATABASE_PASSWORD: str = ''
+    DATABASE_NAME: str = ''
+
     # CORS
     ALLOWED_HOSTS: List[str] = [
         "http://localhost:3000",
@@ -40,9 +47,6 @@ class Settings(BaseSettings):
         elif isinstance(v, (list, str)):
             return v
         raise ValueError(v)
-
-    # Database
-    DATABASE_URL: Optional[str] = None
 
     # Logging
     LOG_LEVEL: str = "INFO"

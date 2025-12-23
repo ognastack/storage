@@ -7,14 +7,17 @@ from src.core.logging import setup_logging
 from src.core.middleware import setup_middleware
 from src.errors.handlers import setup_exception_handlers
 from src.api.router import api_router
+from src.database.database import create_db_and_tables
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
     setup_logging()
+    create_db_and_tables()
     yield
     # Shutdown
+    # Add any cleanup code here if needed
     pass
 
 
@@ -45,7 +48,7 @@ def create_application() -> FastAPI:
     setup_exception_handlers(app)
 
     # Include routers
-    app.include_router(api_router, prefix=settings.API_V1_STR)
+    app.include_router(api_router)
 
     return app
 

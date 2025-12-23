@@ -1,25 +1,32 @@
-from fastapi import APIRouter, UploadFile, status, HTTPException
+import uuid
+from fastapi import APIRouter, UploadFile, status, HTTPException, Depends
 from src.application.manager import StorageManage
 from src.schema.response.storage import FileAccepted, MainResponse
+from src.database.database import DatabaseEngine
+from src.api.deps import get_current_user
 
 router = APIRouter()
 
 
 @router.post("/{bucket_name}", response_model=FileAccepted, status_code=status.HTTP_201_CREATED)
-async def upload_file(file: UploadFile, bucket_name: str):
-    storage = StorageManage(bucket_name=bucket_name).storage
+async def upload_file(file: UploadFile, bucket_name: str, user_id: str = Depends(get_current_user)):
     try:
-        # Use the object_name from bucket_data or fallback to original filename
+
+        engine = DatabaseEngine()
+        bucket = engine.get_bucket_by_id_user(
+            bucket_name=bucket_name,
+            owner_id=uuid.UUID(user_id)
+        )
+
+        if bucket is None:
+            raise Exception('Bucket not found')
+
         object_name = file.filename
 
-        # Switch to the specified bucket if different
-        original_bucket = storage.bucket_name
-        storage.bucket_name = bucket_name
+        storage = StorageManage(bucket_name=str(bucket.id)).storage
 
-        # Ensure the bucket exists
         storage.create_bucket(bucket_name)
 
-        # Upload the file using upload_fileobj (works with FastAPI UploadFile)
         success = storage.upload_fileobj(
             file.file,
             object_name
@@ -31,15 +38,9 @@ async def upload_file(file: UploadFile, bucket_name: str):
                 detail="Failed to upload file"
             )
 
-        # Generate presigned URL (optional)
-        url = storage.get_presigned_url(object_name)
-
-        # Restore original bucket
-        storage.bucket_name = original_bucket
-
         return FileAccepted(
             success=success,
-            url=url
+            url=storage.get_presigned_url(object_name)
         )
     except Exception as e:
         raise HTTPException(
