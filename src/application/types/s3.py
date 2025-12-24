@@ -1,12 +1,13 @@
 import os
-import boto3
-from botocore.exceptions import ClientError
-from typing import Optional, BinaryIO
 import logging
+import boto3
+from typing import Optional, BinaryIO
+from botocore.exceptions import ClientError
 
+from config.settings import settings
 from src.application.types.storage import StorageAction
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=settings.LOG_LEVEL)
 logger = logging.getLogger(__name__)
 
 

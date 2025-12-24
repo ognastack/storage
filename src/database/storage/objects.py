@@ -15,8 +15,6 @@ class Objects(SQLModel, table=True):
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     name: str = Field(index=True, nullable=False)
     bucket_id: uuid.UUID = Field(foreign_key="storage.bucket.id", nullable=False)
-
-    # Add this column:
     last_modified: datetime = Field(
         sa_column=Column(
             DateTime(timezone=True),

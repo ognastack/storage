@@ -16,7 +16,6 @@ async def upload_file(
         bucket_name: Annotated[str, Path()],
         user_id: uuid.UUID = Depends(get_current_user)
 ):
-    logging.info(f"Uploading object {file.filename}")
     manager = StorageManager(bucket_name=bucket_name)
 
     url = manager.upload_file(
@@ -29,6 +28,12 @@ async def upload_file(
         success=True,
         url=url
     )
+
+
+@router.get("/{bucket_name}", status_code=status.HTTP_200_OK)
+async def list_files(bucket_name: Annotated[str, Path()], user_id: uuid.UUID = Depends(get_current_user)):
+    manager = StorageManager(bucket_name=bucket_name)
+    return manager.get_files(current_user=user_id)
 
 
 @router.delete("/{bucket_name}/{file_name}", status_code=status.HTTP_201_CREATED, response_model=MainResponse)
@@ -50,11 +55,11 @@ async def get_file(
         file_name: str,
         user_id: uuid.UUID = Depends(get_current_user)
 ):
-    file_path,file_name = StorageManager(bucket_name=bucket_name).get_file(
+    file_path, file_name = StorageManager(bucket_name=bucket_name).get_file(
         file_name=file_name,
         current_user=user_id
     )
     return FileResponse(
         path=file_path,
-        filename=file_name  # This is what the user sees in their browser
+        filename=file_name
     )

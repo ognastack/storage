@@ -1,9 +1,8 @@
-import logging
 import uuid
-
-from config.settings import settings
+import logging
 from fastapi import UploadFile
 
+from config.settings import settings
 from src.application.types.storage import StorageAction
 from src.application.types.s3 import S3StorageActions
 from src.application.types.local import LocalStorageActions
@@ -12,6 +11,11 @@ from src.schema.response.storage import NewBucket
 from src.schema.requests.storage import Bucket
 from src.database.database import DatabaseEngine
 from src.core.exceptions import BucketNotFound
+
+from src.database.storage.objects import Objects
+
+logging.basicConfig(level=settings.LOG_LEVEL)
+logger = logging.getLogger(__name__)
 
 
 class StorageManager:
@@ -25,6 +29,7 @@ class StorageManager:
         ) if settings.STORAGE_TYPE == "S3" else LocalStorageActions()
 
     def create_bucket(self, bucket_data: Bucket, current_user: uuid.UUID) -> NewBucket:
+        logger.info(f"Creating bucket {bucket_data.name}")
         engine = DatabaseEngine()
         bucket = engine.create_bucket(
             bucket_data=bucket_data,
@@ -34,6 +39,7 @@ class StorageManager:
         return NewBucket(accepted=complete)
 
     def upload_file(self, file: UploadFile, current_user: uuid.UUID) -> str:
+        logger.info(f"Uploading bucket {file.filename}")
         engine = DatabaseEngine()
         bucket = engine.get_bucket_by_id_user(
             bucket_name=self.bucket_name,
@@ -63,8 +69,8 @@ class StorageManager:
         )
 
     def delete_file(self, file_name: str, current_user: uuid.UUID) -> bool:
+        logger.info(f"Deleting bucket {file_name}")
         engine = DatabaseEngine()
-
         results = engine.get_file(
             bucket_name=self.bucket_name,
             file_name=file_name,
@@ -85,6 +91,7 @@ class StorageManager:
         return self.storage.delete_file(object_name=file_name, bucket_name=str(bucket.id))
 
     def get_file(self, file_name: str, current_user: uuid.UUID):
+        logger.info(f"Getting bucket {file_name}")
         engine = DatabaseEngine()
         results = engine.get_file(
             bucket_name=self.bucket_name,
@@ -102,3 +109,16 @@ class StorageManager:
         self.storage.download_file(object_name=file_name, file_path=file_path, bucket_name=str(bucket.id))
 
         return file_path, file_name
+
+    def get_files(self, current_user: uuid.UUID) -> list[Objects]:
+        engine = DatabaseEngine()
+        results = engine.get_files(
+            bucket_name=self.bucket_name,
+            owner_id=current_user
+        )
+        files = [obj for bucket, obj in results]
+
+        if not files:
+            return []
+
+        return files
