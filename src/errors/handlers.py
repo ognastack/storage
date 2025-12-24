@@ -93,6 +93,26 @@ async def general_exception_handler(request: Request, exc: Exception):
     )
 
 
+async def file_not_found_exception_handler(request: Request, exc: FileNotFoundError):
+    """Handler for unhandled exceptions"""
+    logger.error(
+        f"Unhandled exception: {str(exc)}",
+        extra={
+            "request_id": getattr(request.state, "request_id", None),
+        },
+        exc_info=True
+    )
+
+    return JSONResponse(
+        status_code=status.HTTP_404_NOT_FOUND,
+        content={
+            "error": True,
+            "message": f"File '{exc.filename}' not found ",
+            "request_id": getattr(request.state, "request_id", None),
+        }
+    )
+
+
 def setup_exception_handlers(app: FastAPI):
     """Setup exception handlers"""
     app.add_exception_handler(BaseAPIException, base_api_exception_handler)
@@ -100,3 +120,4 @@ def setup_exception_handlers(app: FastAPI):
     app.add_exception_handler(HTTPException, http_exception_handler)
     app.add_exception_handler(StarletteHTTPException, http_exception_handler)
     app.add_exception_handler(Exception, general_exception_handler)
+    app.add_exception_handler(FileNotFoundError, file_not_found_exception_handler)

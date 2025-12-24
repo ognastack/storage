@@ -1,7 +1,8 @@
 import logging
 import uuid
 from typing import Annotated
-from fastapi import File, APIRouter, UploadFile, status, HTTPException, Depends, Path
+from fastapi import File, APIRouter, UploadFile, status, Depends, Path
+from fastapi.responses import FileResponse
 from src.application.manager import StorageManager
 from src.schema.response.storage import FileAccepted, MainResponse
 from src.api.deps import get_current_user
@@ -41,3 +42,19 @@ async def delete_file(
         current_user=user_id
     )
     return MainResponse(accepted=deletion)
+
+
+@router.get("/{bucket_name}/{file_name}", status_code=status.HTTP_200_OK)
+async def get_file(
+        bucket_name: str,
+        file_name: str,
+        user_id: uuid.UUID = Depends(get_current_user)
+):
+    file_path,file_name = StorageManager(bucket_name=bucket_name).get_file(
+        file_name=file_name,
+        current_user=user_id
+    )
+    return FileResponse(
+        path=file_path,
+        filename=file_name  # This is what the user sees in their browser
+    )

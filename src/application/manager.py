@@ -1,3 +1,4 @@
+import logging
 import uuid
 
 from config.settings import settings
@@ -20,8 +21,7 @@ class StorageManager:
         self.storage: StorageAction = S3StorageActions(
             endpoint_url=settings.S3_ENDPOINT_URL,
             access_key=settings.S3_ACCESS_KEY,
-            secret_key=settings.S3_SECRET_KEY,
-            bucket_name=self.bucket_name
+            secret_key=settings.S3_SECRET_KEY
         ) if settings.STORAGE_TYPE == "S3" else LocalStorageActions()
 
     def create_bucket(self, bucket_data: Bucket, current_user: uuid.UUID) -> NewBucket:
@@ -48,18 +48,31 @@ class StorageManager:
             file_name=file.filename,
             owner_id=current_user
         )
-        self.storage.create_bucket(self.bucket_name)
+
         object_name = file.filename
 
         self.storage.upload_fileobj(
             file_obj=file.file,
+            bucket_name=str(bucket.id),
             object_name=object_name
         )
 
-        return self.storage.get_presigned_url(object_name)
+        return self.storage.get_presigned_url(
+            object_name=object_name,
+            bucket_name=self.bucket_name
+        )
 
-    def delete_file(self, file_name: str, current_user: uuid.UUID):
+    def delete_file(self, file_name: str, current_user: uuid.UUID) -> bool:
         engine = DatabaseEngine()
+
+        results = engine.get_file(
+            bucket_name=self.bucket_name,
+            file_name=file_name,
+            owner_id=current_user
+        )
+
+        if results is None:
+            raise FileNotFoundError(2, "No such file or directory", file_name)
 
         engine.delete_file(
             bucket_name=self.bucket_name,
@@ -67,5 +80,25 @@ class StorageManager:
             file_name=file_name
         )
 
-        return True
+        bucket, file_data = results
 
+        return self.storage.delete_file(object_name=file_name, bucket_name=str(bucket.id))
+
+    def get_file(self, file_name: str, current_user: uuid.UUID):
+        engine = DatabaseEngine()
+        results = engine.get_file(
+            bucket_name=self.bucket_name,
+            file_name=file_name,
+            owner_id=current_user
+        )
+
+        if results is None:
+            raise FileNotFoundError(2, "No such file or directory", file_name)
+
+        bucket, file_data = results
+
+        file_path = f"/tmp/{str(current_user)}"
+
+        self.storage.download_file(object_name=file_name, file_path=file_path, bucket_name=str(bucket.id))
+
+        return file_path, file_name

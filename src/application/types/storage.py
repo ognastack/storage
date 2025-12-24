@@ -5,11 +5,6 @@ from typing import Optional, BinaryIO
 class StorageAction(ABC):
 
     @abstractmethod
-    def _ensure_bucket_exists(self):
-        """Create bucket if it doesn't exist."""
-        pass
-
-    @abstractmethod
     def create_bucket(self, bucket_name: str, acl: str = 'private') -> bool:
         """
         Create a new bucket in S3 storage.
@@ -24,30 +19,11 @@ class StorageAction(ABC):
         pass
 
     @abstractmethod
-    def upload_file(
-            self,
-            file_path: str,
-            object_name: Optional[str] = None,
-            metadata: Optional[dict] = None
-    ) -> bool:
-        """
-        Upload a file to S3 storage.
-
-        Args:
-            file_path: Path to the file to upload
-            object_name: S3 object name (defaults to file basename)
-            metadata: Optional metadata dictionary
-
-        Returns:
-            True if successful, False otherwise
-        """
-        pass
-
-    @abstractmethod
     def upload_fileobj(
             self,
             file_obj: BinaryIO,
             object_name: str,
+            bucket_name: str,
             metadata: Optional[dict] = None
     ) -> bool:
         """
@@ -56,6 +32,7 @@ class StorageAction(ABC):
         Args:
             file_obj: File-like object to upload
             object_name: S3 object name
+            bucket_name: Bucket name or did where the file will be stored
             metadata: Optional metadata dictionary
 
         Returns:
@@ -64,7 +41,7 @@ class StorageAction(ABC):
         pass
 
     @abstractmethod
-    def download_file(self, object_name: str, file_path: str) -> bool:
+    def download_file(self, object_name: str, bucket_name: str, file_path: str) -> bool:
         """
         Download a file from S3 storage.
 
@@ -78,7 +55,7 @@ class StorageAction(ABC):
         pass
 
     @abstractmethod
-    def delete_file(self, object_name: str) -> bool:
+    def delete_file(self, object_name: str, bucket_name: str) -> bool:
         """
         Delete a file from S3 storage.
 
@@ -91,11 +68,12 @@ class StorageAction(ABC):
         pass
 
     @abstractmethod
-    def list_files(self, prefix: str = "") -> list:
+    def list_files(self, bucket_name: str, prefix: str = "") -> list:
         """
         List files in S3 storage.
 
         Args:
+            bucket_name: Bucket name or did where the file will be stored
             prefix: Optional prefix to filter files
 
         Returns:
@@ -106,6 +84,7 @@ class StorageAction(ABC):
     @abstractmethod
     def get_presigned_url(
             self,
+            bucket_name: str,
             object_name: str,
             expiration: int = 3600
     ) -> Optional[str]:
@@ -113,6 +92,7 @@ class StorageAction(ABC):
         Generate a presigned URL for downloading a file.
 
         Args:
+            bucket_name: Bucket name or did where the file will be stored
             object_name: S3 object name
             expiration: URL expiration time in seconds (default: 1 hour)
 

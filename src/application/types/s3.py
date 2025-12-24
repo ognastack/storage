@@ -18,7 +18,6 @@ class S3StorageActions(StorageAction):
             endpoint_url: Optional[str] = None,
             access_key: Optional[str] = None,
             secret_key: Optional[str] = None,
-            bucket_name: str = "my-storage-bucket",
             region: str = "us-east-1"
     ):
         """
@@ -31,7 +30,6 @@ class S3StorageActions(StorageAction):
             bucket_name: Name of the bucket to use
             region: AWS region
         """
-        self.bucket_name = bucket_name
 
         # Initialize S3 client
         self.s3_client = boto3.client(
@@ -41,24 +39,6 @@ class S3StorageActions(StorageAction):
             aws_secret_access_key=secret_key or os.getenv('AWS_SECRET_ACCESS_KEY'),
             region_name=region
         )
-
-    def _ensure_bucket_exists(self):
-        """Create bucket if it doesn't exist."""
-        try:
-            self.s3_client.head_bucket(Bucket=self.bucket_name)
-            logger.info(f"Bucket '{self.bucket_name}' exists")
-        except ClientError as e:
-            error_code = e.response['Error']['Code']
-            if error_code == '404':
-                try:
-                    self.s3_client.create_bucket(Bucket=self.bucket_name)
-                    logger.info(f"Created bucket '{self.bucket_name}'")
-                except ClientError as create_error:
-                    logger.error(f"Failed to create bucket: {create_error}")
-                    raise
-            else:
-                logger.error(f"Error checking bucket: {e}")
-                raise
 
     def create_bucket(self, bucket_name: str, acl: str = 'private') -> bool:
         """
@@ -92,47 +72,11 @@ class S3StorageActions(StorageAction):
             logger.error(f"Failed to create bucket '{bucket_name}': {e}")
             return False
 
-    def upload_file(
-            self,
-            file_path: str,
-            object_name: Optional[str] = None,
-            metadata: Optional[dict] = None
-    ) -> bool:
-        """
-        Upload a file to S3 storage.
-
-        Args:
-            file_path: Path to the file to upload
-            object_name: S3 object name (defaults to file basename)
-            metadata: Optional metadata dictionary
-
-        Returns:
-            True if successful, False otherwise
-        """
-        if object_name is None:
-            object_name = os.path.basename(file_path)
-
-        extra_args = {}
-        if metadata:
-            extra_args['Metadata'] = metadata
-
-        try:
-            self.s3_client.upload_file(
-                file_path,
-                self.bucket_name,
-                object_name,
-                ExtraArgs=extra_args if extra_args else None
-            )
-            logger.info(f"Successfully uploaded '{file_path}' as '{object_name}'")
-            return True
-        except ClientError as e:
-            logger.error(f"Failed to upload file: {e}")
-            return False
-
     def upload_fileobj(
             self,
             file_obj: BinaryIO,
             object_name: str,
+            bucket_name: str,
             metadata: Optional[dict] = None
     ) -> bool:
         """
@@ -141,6 +85,7 @@ class S3StorageActions(StorageAction):
         Args:
             file_obj: File-like object to upload
             object_name: S3 object name
+            bucket_name: Bucket name or did where the file will be stored
             metadata: Optional metadata dictionary
 
         Returns:
@@ -153,7 +98,7 @@ class S3StorageActions(StorageAction):
         try:
             self.s3_client.upload_fileobj(
                 file_obj,
-                self.bucket_name,
+                bucket_name,
                 object_name,
                 ExtraArgs=extra_args if extra_args else None
             )
@@ -163,48 +108,50 @@ class S3StorageActions(StorageAction):
             logger.error(f"Failed to upload file object: {e}")
             return False
 
-    def download_file(self, object_name: str, file_path: str) -> bool:
+    def download_file(self, object_name: str, bucket_name: str, file_path: str) -> bool:
         """
         Download a file from S3 storage.
 
         Args:
             object_name: S3 object name
+            bucket_name: Bucket name or did where the file will be stored
             file_path: Local path to save the file
-
         Returns:
             True if successful, False otherwise
         """
         try:
-            self.s3_client.download_file(self.bucket_name, object_name, file_path)
+            self.s3_client.download_file(bucket_name, object_name, file_path)
             logger.info(f"Successfully downloaded '{object_name}' to '{file_path}'")
             return True
         except ClientError as e:
             logger.error(f"Failed to download file: {e}")
             return False
 
-    def delete_file(self, object_name: str) -> bool:
+    def delete_file(self, object_name: str, bucket_name: str) -> bool:
         """
         Delete a file from S3 storage.
 
         Args:
             object_name: S3 object name to delete
+            bucket_name: Bucket name or did where the file will be stored
 
         Returns:
             True if successful, False otherwise
         """
         try:
-            self.s3_client.delete_object(Bucket=self.bucket_name, Key=object_name)
+            self.s3_client.delete_object(Bucket=bucket_name, Key=object_name)
             logger.info(f"Successfully deleted '{object_name}'")
             return True
         except ClientError as e:
             logger.error(f"Failed to delete file: {e}")
             return False
 
-    def list_files(self, prefix: str = "") -> list:
+    def list_files(self, bucket_name: str, prefix: str = "", ) -> list:
         """
         List files in S3 storage.
 
         Args:
+            bucket_name: Bucket name or did where the file will be stored
             prefix: Optional prefix to filter files
 
         Returns:
@@ -212,7 +159,7 @@ class S3StorageActions(StorageAction):
         """
         try:
             response = self.s3_client.list_objects_v2(
-                Bucket=self.bucket_name,
+                Bucket=bucket_name,
                 Prefix=prefix
             )
 
@@ -225,6 +172,7 @@ class S3StorageActions(StorageAction):
 
     def get_presigned_url(
             self,
+            bucket_name: str,
             object_name: str,
             expiration: int = 3600
     ) -> Optional[str]:
@@ -232,6 +180,7 @@ class S3StorageActions(StorageAction):
         Generate a presigned URL for downloading a file.
 
         Args:
+            bucket_name: Bucket name or did where the file will be stored
             object_name: S3 object name
             expiration: URL expiration time in seconds (default: 1 hour)
 
@@ -241,7 +190,7 @@ class S3StorageActions(StorageAction):
         try:
             url = self.s3_client.generate_presigned_url(
                 'get_object',
-                Params={'Bucket': self.bucket_name, 'Key': object_name},
+                Params={'Bucket': bucket_name, 'Key': object_name},
                 ExpiresIn=expiration
             )
             logger.info(f"Generated presigned URL for '{object_name}'")
@@ -249,5 +198,3 @@ class S3StorageActions(StorageAction):
         except ClientError as e:
             logger.error(f"Failed to generate presigned URL: {e}")
             return None
-
-
