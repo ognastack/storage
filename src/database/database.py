@@ -91,6 +91,13 @@ class DatabaseEngine:
             )
             return session.exec(statement).all()
 
+    def get_buckets(self, owner_id: uuid.UUID):
+        with get_session() as session:
+            statement = select(Bucket).where(
+                Bucket.owner == owner_id
+            )
+            return session.exec(statement).all()
+
     def create_file(self, bucket_name: str, file_name: str, owner_id: uuid.UUID) -> Objects:
         bucket_data = self.get_bucket_by_id_user(
             bucket_name=bucket_name,

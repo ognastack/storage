@@ -65,7 +65,7 @@ class StorageManager:
 
         return self.storage.get_presigned_url(
             object_name=object_name,
-            bucket_name=self.bucket_name
+            bucket_name=str(bucket.id)
         )
 
     def delete_file(self, file_name: str, current_user: uuid.UUID) -> bool:
@@ -122,3 +122,15 @@ class StorageManager:
             return []
 
         return files
+
+    def get_buckets(self, current_user: uuid.UUID):
+        engine = DatabaseEngine()
+        results = engine.get_buckets(
+            owner_id=current_user
+        )
+        all_buckets = [bucket for bucket in results]
+
+        if not all_buckets:
+            return []
+
+        return all_buckets
