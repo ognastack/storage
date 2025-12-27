@@ -16,10 +16,10 @@ logger = logging.getLogger(__name__)
 def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)) -> uuid.UUID:
     """Get current authenticated user"""
     try:
-
+        logger.error(credentials.credentials)
         payload = jwt.decode(
             credentials.credentials,
-            settings.SECRET_KEY,
+            settings.GOTRUE_JWT_SECRET,
             algorithms=[settings.ALGORITHM],
             audience="authenticated"
         )

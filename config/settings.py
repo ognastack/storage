@@ -14,7 +14,7 @@ class Settings(BaseSettings):
     API_V1_STR: str = "/v1"
 
     # Security
-    SECRET_KEY: str = 'superlongjwtsecret'
+    GOTRUE_JWT_SECRET: str = 'superlongjwtsecret'
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     ALGORITHM: str = "HS256"
 
@@ -39,6 +39,11 @@ class Settings(BaseSettings):
         "http://localhost:8000",
         "https://yourdomain.com",
     ]
+
+    GRAPHQL_HOST: str = 'http://hasura:8080'
+    GRAPHQL_ENDPOINT: str = '/v1/graphql'
+    GRAPHQL_SECRET: str = '/v1/graphql'
+
 
     @field_validator("ALLOWED_HOSTS", mode="before")
     @classmethod

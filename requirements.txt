@@ -1,7 +1,7 @@
 boto3
 fastapi[standard]
-sqlmodel
 psycopg2-binary
 python-jose[cryptography]==3.3.0
 pydantic-settings
 python-dotenv
+requests

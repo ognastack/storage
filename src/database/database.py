@@ -1,149 +1,320 @@
 import logging
 import uuid
+import requests
+from typing import Optional
+
 from datetime import datetime, timezone
-
-from sqlmodel import Session, SQLModel, create_engine, select
 from config.settings import settings
-from sqlalchemy import text
-from contextlib import contextmanager
 
-from src.database.storage.bucket import Bucket
-from src.database.storage.objects import Objects
-from src.schema.requests.storage import Bucket as BaseBucket
-
+from src.schema.requests.storage import Bucket as BaseBucket, FileObject
 from src.core.exceptions import BucketNotFound
+
+import os
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Build PostgreSQL connection URL
-DATABASE_URL = f"postgresql://{settings.DATABASE_USERNAME}:{settings.DATABASE_PASSWORD}@{settings.DATABASE_URL}:{settings.DATABASE_PORT}/{settings.DATABASE_NAME}"
-
-engine = create_engine(
-    DATABASE_URL,
-    echo=False,
-    pool_pre_ping=True
-)
-
-
-def create_db_and_tables():
-    # Create schemas FIRST, before creating tables
-    with engine.connect() as conn:
-        logger.info("Creating schemas")
-        conn.execute(text("CREATE SCHEMA IF NOT EXISTS storage"))
-        # Add any other schemas you need
-        # conn.execute(text("CREATE SCHEMA IF NOT EXISTS auth"))
-        conn.commit()
-
-    # Then create tables
-    logger.info("Creating tables")
-    SQLModel.metadata.create_all(engine)
-
-
-@contextmanager
-def get_session():
-    with Session(engine) as session:
-        yield session
-
 
 class DatabaseEngine:
 
-    def get_bucket_by_id(self, bucket_id: str):
-        with get_session() as session:
-            statement = select(Bucket).where(Bucket.id == bucket_id)
-            return session.exec(statement).first()
+    def __init__(self, token):
 
-    def get_bucket_by_id_user(self, bucket_name: str, owner_id: uuid.UUID) -> Bucket:
-        with get_session() as session:
-            statement = select(Bucket).where(
-                Bucket.name == bucket_name,
-                Bucket.owner == owner_id
-            )
-            return session.exec(statement).first()
+        self.graphql_endpoint = f"{settings.GRAPHQL_HOST}/{settings.GRAPHQL_ENDPOINT}"
 
-    def create_bucket(cls, bucket_data: BaseBucket, user_id: uuid.UUID) -> Bucket:
-        with get_session() as session:
-            bucket = Bucket(
-                name=bucket_data.name,
-                owner=user_id
-            )
-            session.add(bucket)
-            session.commit()
-            session.refresh(bucket)
-            return bucket
+        self.session = requests.session()
 
-    def get_file(self, bucket_name: str, file_name: str, owner_id: uuid.UUID):
-        with get_session() as session:
-            statement = select(Bucket, Objects).where(
-                Bucket.id == Objects.bucket_id,
-                Bucket.name == bucket_name,
-                Objects.name == file_name,
-                Bucket.owner == owner_id
-            )
-            return session.exec(statement).first()
+        logger.error({
+            "Authorization": f"Bearer {token}"
+        })
+        self.session.headers.update({
+            "Authorization": f"Bearer {token}"
+        })
 
-    def get_files(self, bucket_name: str, owner_id: uuid.UUID):
-        with get_session() as session:
-            statement = select(Bucket, Objects).where(
-                Bucket.id == Objects.bucket_id,
-                Bucket.name == bucket_name,
-                Bucket.owner == owner_id
-            )
-            return session.exec(statement).all()
+    def get_bucket_by_id(self, bucket_id: str) -> Optional[BaseBucket]:
+        query = """
+            query GetBucket($name: String!) {
+              storage_bucket(where: {
+                name: {_eq: $name}
+              }, limit: 1) {
+                id
+                name
+                owner
+              }
+            }
+        """
 
-    def get_buckets(self, owner_id: uuid.UUID):
-        with get_session() as session:
-            statement = select(Bucket).where(
-                Bucket.owner == owner_id
-            )
-            return session.exec(statement).all()
+        variables = {
+            "name": bucket_id
+        }
 
-    def create_file(self, bucket_name: str, file_name: str, owner_id: uuid.UUID) -> Objects:
-        bucket_data = self.get_bucket_by_id_user(
-            bucket_name=bucket_name,
-            owner_id=owner_id
+        response = self.session.post(
+            self.graphql_endpoint,
+            json={'query': query, 'variables': variables}
         )
 
-        if bucket_data is None:
+        result = response.json()
+
+        # It is good practice to check for the 'errors' key in the JSON
+        if "errors" in result:
+            logger.error(f"GraphQL Errors: {result['errors']}")
+            return None
+
+        data = result.get('data', {}).get('storage_bucket', [])
+
+        return BaseBucket(**data[0]) if data else None
+
+    def get_bucket_by_id_user(self, bucket_name: str, owner_id: uuid.UUID) -> Optional[BaseBucket]:
+        query = """
+            query GetBucket($name: String!, $owner: uuid!) {
+              storage_bucket(where: {
+                name: {_eq: $name}, 
+                owner: {_eq: $owner}
+              }, limit: 1) {
+                id
+                name
+                owner
+              }
+            }
+        """
+
+        variables = {
+            "name": bucket_name,
+            "owner": str(owner_id)
+        }
+
+        response = self.session.post(
+            self.graphql_endpoint,
+            json={'query': query, 'variables': variables}
+        )
+
+        result = response.json()
+
+        # It is good practice to check for the 'errors' key in the JSON
+        if "errors" in result:
+            logger.error(f"GraphQL Errors: {result['errors']}")
+            return None
+
+        data = result.get('data', {}).get('storage_bucket', [])
+
+        return BaseBucket(**data[0]) if data else None
+
+    def create_bucket(self, bucket_data: BaseBucket, user_id: uuid.UUID) -> Optional[BaseBucket]:
+        mutation = """
+        mutation CreateBucket($name: String!) {
+          insert_storage_bucket_one(object: {
+            name: $name
+          }) {
+            id
+            name
+            owner
+          }
+        }
+        """
+
+        variables = {
+            "name": bucket_data.name
+        }
+
+        logger.warning(f"graph ql url {self.graphql_endpoint}")
+
+        response = self.session.post(
+            self.graphql_endpoint,
+            json={'query': mutation, 'variables': variables}
+        )
+
+        logger.error(response.json())
+        result = response.json()
+        if "errors" in result:
+            raise Exception(f"Mutation failed: {result['errors']}")
+
+        data = result.get('data', {}).get('insert_storage_bucket_one')
+        return BaseBucket(**data) if data else None
+
+    def get_file(self, bucket_name: str, file_name: str, owner_id: uuid.UUID) -> Optional[FileObject]:
+        query = """
+            query GetFile($bucketName: String!, $fileName: String!) {
+              storage_bucket(where: {
+                name: {_eq: $bucketName}
+              }, limit: 1) {
+                objects(where: {name: {_eq: $fileName}}, limit: 1) {
+                    bucket_id
+                    id
+                    last_modified
+                    name
+                }
+              }
+            }
+        """
+
+        variables = {
+            "bucketName": bucket_name,
+            "fileName": file_name
+        }
+
+        response = self.session.post(
+            self.graphql_endpoint,
+            json={'query': query, 'variables': variables}
+        )
+
+        result = response.json()
+        logger.warning(result)
+        if "errors" in result:
+            logger.error(f"Hasura Error: {result['errors']}")
+            return None
+
+        # Navigate the nested data: bucket -> objects -> first item
+        data = result.get('data', {}).get('storage_bucket', [])
+        if data and data[0].get('objects'):
+            file_data = data[0]['objects'][0]
+            return FileObject(**file_data)
+
+        return None
+
+    def get_files(self, bucket_name: str, owner_id: uuid.UUID) -> list[FileObject]:
+        query = """
+            query GetFile($bucketName: String!) {
+              storage_bucket(
+                where: { name: { _eq: $bucketName } }
+                limit: 1
+              ) {
+                objects {
+                  id
+                  name
+                  bucket_id
+                  last_modified
+                }
+              }
+            }
+        """
+
+        variables = {
+            "bucketName": bucket_name
+        }
+
+        response = self.session.post(
+            self.graphql_endpoint,
+            json={'query': query, 'variables': variables}
+        )
+
+        result = response.json()
+        logger.warning(result)
+        if "errors" in result:
+            logger.error(f"Hasura Error: {result['errors']}")
+            raise Exception(str(result['errors']))
+
+        # Navigate the nested data: bucket -> objects -> first item
+        results: list[FileObject] = []
+        data = result.get('data', {}).get('storage_bucket', [])
+        if data and data[0].get('objects'):
+            for fdata in data[0]['objects']:
+                results.append(FileObject(**fdata))
+        return results
+
+    def get_buckets(self, owner_id: uuid.UUID) -> list[BaseBucket]:
+        query = """
+            query GetFile {
+              storage_bucket {
+                owner
+                name
+                id
+              }
+            }
+        """
+        response = self.session.post(
+            self.graphql_endpoint,
+            json={'query': query}
+        )
+
+        result = response.json()
+        logger.warning(result)
+        if "errors" in result:
+            logger.error(f"Hasura Error: {result['errors']}")
+            raise Exception(str(result['errors']))
+
+        # Navigate the nested data: bucket -> objects -> first item
+        results: list[BaseBucket] = []
+        all_buckets = result.get('data', {}).get('storage_bucket', [])
+
+        for bucket in all_buckets:
+            results.append(BaseBucket(**bucket))
+        return results
+
+    def create_file(self, bucket_name: str, file_name: str, owner_id: uuid.UUID):
+        bucket_data = self.get_bucket_by_id_user(bucket_name, owner_id)
+        if not bucket_data:
             raise BucketNotFound(bucket_name)
 
-        search_file = self.get_file(
-            bucket_name=bucket_data.name,
-            file_name=file_name,
-            owner_id=owner_id
+        # Note the singular 'object' in the mutation name
+        mutation = """
+            mutation UpsertFile($bucketId: uuid!, $name: String!, $now: timestamptz!) {
+              insert_storage_object_one(
+                object: {
+                  bucket_id: $bucketId,
+                  name: $name,
+                  last_modified: $now
+                },
+                on_conflict: {
+                  constraint: object_bucket_id_name_key, 
+                  update_columns: [last_modified]
+                }
+              ) {
+                id
+                name
+                last_modified
+              }
+            }
+        """
+
+        variables = {
+            "bucketId": str(bucket_data.id),
+            "name": file_name,
+            "now": datetime.now(timezone.utc).isoformat()
+        }
+
+        response = self.session.post(
+            self.graphql_endpoint,
+            json={'query': mutation, 'variables': variables}
         )
 
-        if search_file is None:
+        result = response.json()
+        if "errors" in result:
+            # If it still fails, check the constraint name in Postgres
+            raise Exception(f"Upsert failed: {result['errors']}")
 
-            with get_session() as session:
-                new_objects = Objects(
-                    name=file_name,
-                    bucket_id=bucket_data.id
-                )
-                session.add(new_objects)
-                session.commit()
-                session.refresh(new_objects)
-                return new_objects
-        else:
-            with get_session() as session:
-                _, object_data_file = search_file
-                object_data_file.last_modified = datetime.now(timezone.utc)
-                session.add(object_data_file)
-                session.commit()
-                session.refresh(object_data_file)
+        return result.get('data', {}).get('insert_storage_object_one')
 
     def delete_file(self, bucket_name: str, file_name: str, owner_id: uuid.UUID):
+        mutation = """
+            mutation DeleteFile($fileName: String!, $bucketName: String!) {
+              delete_storage_object(where: {
+                name: {_eq: $fileName},
+                bucket: {
+                  name: {_eq: $bucketName}
+                }
+              }) {
+                affected_rows
+              }
+            }
+        """
 
-        search_file = self.get_file(
-            bucket_name=bucket_name,
-            file_name=file_name,
-            owner_id=owner_id
+        variables = {
+            "fileName": file_name,
+            "bucketName": bucket_name
+        }
+
+        response = self.session.post(
+            self.graphql_endpoint,
+            json={'query': mutation, 'variables': variables},
         )
 
-        if search_file is None:
-            raise FileNotFoundError(f"File {file_name} not found")
+        result = response.json()
+        if "errors" in result:
+            raise Exception(f"Delete failed: {result['errors']}")
 
-        _, file_obj = search_file
-        with get_session() as session:
-            session.delete(file_obj)
-            session.commit()
+        # Check if anything was actually deleted
+        affected_rows = result.get('data', {}).get('delete_storage_object', {}).get('affected_rows', 0)
+
+        if affected_rows == 0:
+            raise FileNotFoundError(f"File {file_name} not found or unauthorized")
+
+        return True
