@@ -12,7 +12,7 @@ from src.schema.requests.storage import Bucket
 from src.database.database import DatabaseEngine
 from src.core.exceptions import BucketNotFound
 
-from src.database.storage.objects import Objects
+from src.schema.requests.storage import FileObject
 
 logging.basicConfig(level=settings.LOG_LEVEL)
 logger = logging.getLogger(__name__)
@@ -20,18 +20,18 @@ logger = logging.getLogger(__name__)
 
 class StorageManager:
 
-    def __init__(self, bucket_name):
+    def __init__(self, bucket_name, user_token):
         self.bucket_name = bucket_name
         self.storage: StorageAction = S3StorageActions(
             endpoint_url=settings.S3_ENDPOINT_URL,
             access_key=settings.S3_ACCESS_KEY,
             secret_key=settings.S3_SECRET_KEY
         ) if settings.STORAGE_TYPE == "S3" else LocalStorageActions()
+        self.engine = DatabaseEngine(token=user_token)
 
     def create_bucket(self, bucket_data: Bucket, current_user: uuid.UUID) -> NewBucket:
         logger.info(f"Creating bucket {bucket_data.name}")
-        engine = DatabaseEngine()
-        bucket = engine.create_bucket(
+        bucket = self.engine.create_bucket(
             bucket_data=bucket_data,
             user_id=current_user
         )
@@ -40,8 +40,8 @@ class StorageManager:
 
     def upload_file(self, file: UploadFile, current_user: uuid.UUID) -> str:
         logger.info(f"Uploading bucket {file.filename}")
-        engine = DatabaseEngine()
-        bucket = engine.get_bucket_by_id_user(
+
+        bucket = self.engine.get_bucket_by_id_user(
             bucket_name=self.bucket_name,
             owner_id=current_user
         )
@@ -49,7 +49,7 @@ class StorageManager:
         if bucket is None:
             raise BucketNotFound(self.bucket_name)
 
-        engine.create_file(
+        self.engine.create_file(
             bucket_name=bucket.name,
             file_name=file.filename,
             owner_id=current_user
@@ -70,67 +70,56 @@ class StorageManager:
 
     def delete_file(self, file_name: str, current_user: uuid.UUID) -> bool:
         logger.info(f"Deleting bucket {file_name}")
-        engine = DatabaseEngine()
-        results = engine.get_file(
+        search_file = self.engine.get_file(
             bucket_name=self.bucket_name,
             file_name=file_name,
             owner_id=current_user
         )
 
-        if results is None:
+        if search_file is None:
             raise FileNotFoundError(2, "No such file or directory", file_name)
 
-        engine.delete_file(
+        self.engine.delete_file(
             bucket_name=self.bucket_name,
             owner_id=current_user,
             file_name=file_name
         )
 
-        bucket, file_data = results
-
-        return self.storage.delete_file(object_name=file_name, bucket_name=str(bucket.id))
+        return self.storage.delete_file(object_name=file_name, bucket_name=str(search_file.bucket_id))
 
     def get_file(self, file_name: str, current_user: uuid.UUID):
         logger.info(f"Getting bucket {file_name}")
-        engine = DatabaseEngine()
-        results = engine.get_file(
+
+        store_file = self.engine.get_file(
             bucket_name=self.bucket_name,
             file_name=file_name,
             owner_id=current_user
         )
 
-        if results is None:
+        if store_file is None:
             raise FileNotFoundError(2, "No such file or directory", file_name)
 
-        bucket, file_data = results
+        logger.info(store_file)
 
         file_path = f"/tmp/{str(current_user)}"
 
-        self.storage.download_file(object_name=file_name, file_path=file_path, bucket_name=str(bucket.id))
+        self.storage.download_file(
+            object_name=file_name,
+            file_path=file_path,
+            bucket_name=str(store_file.bucket_id)
+        )
 
-        return file_path, file_name
+        return file_path
 
-    def get_files(self, current_user: uuid.UUID) -> list[Objects]:
-        engine = DatabaseEngine()
-        results = engine.get_files(
+    def get_files(self, current_user: uuid.UUID) -> list[FileObject]:
+
+        return self.engine.get_files(
             bucket_name=self.bucket_name,
             owner_id=current_user
         )
-        files = [obj for bucket, obj in results]
-
-        if not files:
-            return []
-
-        return files
 
     def get_buckets(self, current_user: uuid.UUID):
-        engine = DatabaseEngine()
-        results = engine.get_buckets(
+        results = self.engine.get_buckets(
             owner_id=current_user
         )
-        all_buckets = [bucket for bucket in results]
-
-        if not all_buckets:
-            return []
-
-        return all_buckets
+        return [bucket for bucket in results]

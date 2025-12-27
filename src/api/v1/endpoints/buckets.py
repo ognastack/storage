@@ -2,6 +2,7 @@ import logging
 import uuid
 from typing import Annotated
 from fastapi import File, APIRouter, UploadFile, status, Depends, Path, Body
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
 from src.schema.response.storage import NewBucket
 from src.schema.requests.storage import Bucket
@@ -16,11 +17,16 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+security = HTTPBearer()
 
 
 @router.post("", response_model=NewBucket, status_code=status.HTTP_201_CREATED)
-async def create_bucket(bucket_data: Annotated[Bucket, Body()], user_id: uuid.UUID = Depends(get_current_user)):
-    manager = StorageManager(bucket_name=bucket_data.name)
+async def create_bucket(
+        bucket_data: Annotated[Bucket, Body()],
+        user_id: uuid.UUID = Depends(get_current_user),
+        credentials: HTTPAuthorizationCredentials = Depends(security)
+):
+    manager = StorageManager(bucket_name=bucket_data.name, user_token=credentials.credentials)
 
     return manager.create_bucket(
         bucket_data=bucket_data,
@@ -29,8 +35,11 @@ async def create_bucket(bucket_data: Annotated[Bucket, Body()], user_id: uuid.UU
 
 
 @router.get("", status_code=status.HTTP_200_OK)
-async def list_buckets(user_id: uuid.UUID = Depends(get_current_user)):
-    manager = StorageManager(bucket_name='')
+async def list_buckets(
+        user_id: uuid.UUID = Depends(get_current_user),
+        credentials: HTTPAuthorizationCredentials = Depends(security)
+):
+    manager = StorageManager(bucket_name='', user_token=credentials.credentials)
     return manager.get_buckets(current_user=user_id)
 
 
@@ -38,9 +47,10 @@ async def list_buckets(user_id: uuid.UUID = Depends(get_current_user)):
 async def upload_file(
         file: Annotated[UploadFile, File()],
         bucket_name: Annotated[str, Path()],
-        user_id: uuid.UUID = Depends(get_current_user)
+        user_id: uuid.UUID = Depends(get_current_user),
+        credentials: HTTPAuthorizationCredentials = Depends(security)
 ):
-    manager = StorageManager(bucket_name=bucket_name)
+    manager = StorageManager(bucket_name=bucket_name, user_token=credentials.credentials)
 
     url = manager.upload_file(
         file=file,
@@ -55,8 +65,12 @@ async def upload_file(
 
 
 @router.get("/{bucket_name}", status_code=status.HTTP_200_OK)
-async def list_files(bucket_name: Annotated[str, Path()], user_id: uuid.UUID = Depends(get_current_user)):
-    manager = StorageManager(bucket_name=bucket_name)
+async def list_files(
+        bucket_name: Annotated[str, Path()],
+        user_id: uuid.UUID = Depends(get_current_user),
+        credentials: HTTPAuthorizationCredentials = Depends(security)
+):
+    manager = StorageManager(bucket_name=bucket_name, user_token=credentials.credentials)
     return manager.get_files(current_user=user_id)
 
 
@@ -64,9 +78,10 @@ async def list_files(bucket_name: Annotated[str, Path()], user_id: uuid.UUID = D
 async def delete_file(
         bucket_name: str,
         file_name: str,
-        user_id: uuid.UUID = Depends(get_current_user)
+        user_id: uuid.UUID = Depends(get_current_user),
+        credentials: HTTPAuthorizationCredentials = Depends(security)
 ):
-    deletion = StorageManager(bucket_name=bucket_name).delete_file(
+    deletion = StorageManager(bucket_name=bucket_name, user_token=credentials.credentials).delete_file(
         file_name=file_name,
         current_user=user_id
     )
@@ -77,12 +92,14 @@ async def delete_file(
 async def get_file(
         bucket_name: str,
         file_name: str,
-        user_id: uuid.UUID = Depends(get_current_user)
+        user_id: uuid.UUID = Depends(get_current_user),
+        credentials: HTTPAuthorizationCredentials = Depends(security)
 ):
-    file_path, file_name = StorageManager(bucket_name=bucket_name).get_file(
+    file_path = StorageManager(bucket_name=bucket_name, user_token=credentials.credentials).get_file(
         file_name=file_name,
         current_user=user_id
     )
+
     return FileResponse(
         path=file_path,
         filename=file_name
