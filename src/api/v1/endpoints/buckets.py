@@ -52,7 +52,7 @@ async def upload_file(
 ):
     manager = StorageManager(bucket_name=bucket_name, user_token=credentials.credentials)
 
-    url = manager.upload_file(
+    url, file_id = manager.upload_file(
         file=file,
         current_user=user_id
     )
@@ -60,7 +60,8 @@ async def upload_file(
 
     return FileAccepted(
         success=True,
-        url=url
+        url=url,
+        file_id=file_id
     )
 
 

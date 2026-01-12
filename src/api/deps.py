@@ -16,14 +16,12 @@ logger = logging.getLogger(__name__)
 def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)) -> uuid.UUID:
     """Get current authenticated user"""
     try:
-        logger.error(credentials.credentials)
         payload = jwt.decode(
             credentials.credentials,
             settings.GOTRUE_JWT_SECRET,
             algorithms=[settings.ALGORITHM],
             audience="authenticated"
         )
-        logger.info(payload)
         user_id: str = payload.get("sub")
         if user_id is None:
             raise UnauthorizedError("Could not validate credentials")

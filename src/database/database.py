@@ -23,9 +23,6 @@ class DatabaseEngine:
 
         self.session = requests.session()
 
-        logger.error({
-            "Authorization": f"Bearer {token}"
-        })
         self.session.headers.update({
             "Authorization": f"Bearer {token}"
         })
@@ -111,18 +108,13 @@ class DatabaseEngine:
         }
         """
 
-        variables = {
-            "name": bucket_data.name
-        }
-
-        logger.warning(f"graph ql url {self.graphql_endpoint}")
-
         response = self.session.post(
             self.graphql_endpoint,
-            json={'query': mutation, 'variables': variables}
+            json={'query': mutation, 'variables': {
+                "name": bucket_data.name
+            }}
         )
 
-        logger.error(response.json())
         result = response.json()
         if "errors" in result:
             raise Exception(f"Mutation failed: {result['errors']}")
@@ -157,7 +149,6 @@ class DatabaseEngine:
         )
 
         result = response.json()
-        logger.warning(result)
         if "errors" in result:
             logger.error(f"Hasura Error: {result['errors']}")
             return None
@@ -197,7 +188,7 @@ class DatabaseEngine:
         )
 
         result = response.json()
-        logger.warning(result)
+
         if "errors" in result:
             logger.error(f"Hasura Error: {result['errors']}")
             raise Exception(str(result['errors']))
@@ -226,7 +217,6 @@ class DatabaseEngine:
         )
 
         result = response.json()
-        logger.warning(result)
         if "errors" in result:
             logger.error(f"Hasura Error: {result['errors']}")
             raise Exception(str(result['errors']))
