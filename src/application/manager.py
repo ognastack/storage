@@ -38,7 +38,7 @@ class StorageManager:
         complete = self.storage.create_bucket(bucket_name=str(bucket.id))
         return NewBucket(accepted=complete)
 
-    def upload_file(self, file: UploadFile, current_user: uuid.UUID) -> str:
+    def upload_file(self, file: UploadFile, current_user: uuid.UUID) -> (str, str):
         logger.info(f"Uploading bucket {file.filename}")
 
         bucket = self.engine.get_bucket_by_id_user(
@@ -49,7 +49,7 @@ class StorageManager:
         if bucket is None:
             raise BucketNotFound(self.bucket_name)
 
-        self.engine.create_file(
+        create_file_response = self.engine.create_file(
             bucket_name=bucket.name,
             file_name=file.filename,
             owner_id=current_user
@@ -66,7 +66,7 @@ class StorageManager:
         return self.storage.get_presigned_url(
             object_name=object_name,
             bucket_name=str(bucket.id)
-        )
+        ), create_file_response['id']
 
     def delete_file(self, file_name: str, current_user: uuid.UUID) -> bool:
         logger.info(f"Deleting bucket {file_name}")
