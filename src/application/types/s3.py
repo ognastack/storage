@@ -97,6 +97,14 @@ class S3StorageActions(StorageAction):
             extra_args['Metadata'] = metadata
 
         try:
+            # 1. Check if S3 bucket exists, if not create it automatically
+            try:
+                self.s3_client.head_bucket(Bucket=bucket_name)
+            except ClientError:
+                logger.info(f"S3 bucket '{bucket_name}' does not exist. Creating bucket...")
+                self.create_bucket(bucket_name)
+
+            # 2. Upload file object to S3
             self.s3_client.upload_fileobj(
                 file_obj,
                 bucket_name,
@@ -105,9 +113,10 @@ class S3StorageActions(StorageAction):
             )
             logger.info(f"Successfully uploaded file object as '{object_name}'")
             return True
-        except ClientError as e:
-            logger.error(f"Failed to upload file object: {e}")
-            return False
+        except Exception as e:
+            logger.error(f"Failed to upload file object to S3: {e}")
+            # DO NOT swallow error — raise so the API returns 500 instead of false 201
+            raise e
 
     def download_file(self, object_name: str, bucket_name: str, file_path: str) -> bool:
         """
