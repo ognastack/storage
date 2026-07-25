@@ -1,6 +1,7 @@
 import uuid
 import logging
-from fastapi import UploadFile
+import os
+from fastapi import UploadFile, HTTPException, status
 
 from config.settings import settings
 from src.application.types.storage import StorageAction
@@ -88,7 +89,7 @@ class StorageManager:
         return self.storage.delete_file(object_name=file_name, bucket_name=str(search_file.bucket_id))
 
     def get_file(self, file_name: str, current_user: uuid.UUID):
-        logger.info(f"Getting bucket {file_name}")
+        logger.info(f"Getting file {file_name} from bucket {self.bucket_name}")
 
         store_file = self.engine.get_file(
             bucket_name=self.bucket_name,
@@ -97,18 +98,27 @@ class StorageManager:
         )
 
         if store_file is None:
-            raise FileNotFoundError(2, "No such file or directory", file_name)
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"File record '{file_name}' not found in database"
+            )
 
         logger.info(store_file)
 
         # Unique per-request file path prevents static path collisions on download
         file_path = f"/tmp/{str(current_user)}_{uuid.uuid4().hex[:8]}_{file_name}"
 
-        self.storage.download_file(
+        success = self.storage.download_file(
             object_name=file_name,
             file_path=file_path,
             bucket_name=str(store_file.bucket_id)
         )
+
+        if not success or not os.path.exists(file_path):
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"File content '{file_name}' missing from storage engine"
+            )
 
         return file_path
 
