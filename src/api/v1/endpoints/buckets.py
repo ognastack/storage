@@ -75,6 +75,18 @@ async def list_files(
     return manager.get_files(current_user=user_id)
 
 
+@router.delete("/{bucket_name}", status_code=status.HTTP_200_OK, response_model=MainResponse)
+async def delete_bucket(
+        bucket_name: Annotated[str, Path()],
+        user_id: uuid.UUID = Depends(get_current_user),
+        credentials: HTTPAuthorizationCredentials = Depends(security)
+):
+    deletion = StorageManager(bucket_name=bucket_name, user_token=credentials.credentials).delete_bucket(
+        current_user=user_id
+    )
+    return MainResponse(accepted=deletion)
+
+
 @router.delete("/{bucket_name}/{file_name}", status_code=status.HTTP_201_CREATED, response_model=MainResponse)
 async def delete_file(
         bucket_name: str,

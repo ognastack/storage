@@ -39,6 +39,19 @@ class StorageManager:
         complete = self.storage.create_bucket(bucket_name=str(bucket.id))
         return NewBucket(accepted=complete)
 
+    def delete_bucket(self, current_user: uuid.UUID) -> bool:
+        logger.info(f"Deleting bucket {self.bucket_name}")
+        bucket = self.engine.get_bucket_by_id_user(
+            bucket_name=self.bucket_name,
+            owner_id=current_user
+        )
+        if bucket is None:
+            raise BucketNotFound(self.bucket_name)
+
+        storage_deleted = self.storage.delete_bucket(bucket_name=str(bucket.id))
+        db_deleted = self.engine.delete_bucket(bucket_name=self.bucket_name, owner_id=current_user)
+        return storage_deleted and db_deleted
+
     def upload_file(self, file: UploadFile, current_user: uuid.UUID) -> (str, str):
         logger.info(f"Uploading bucket {file.filename}")
 

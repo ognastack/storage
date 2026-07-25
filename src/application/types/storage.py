@@ -100,3 +100,16 @@ class StorageAction(ABC):
             Presigned URL or None if failed
         """
         pass
+
+    @abstractmethod
+    def delete_bucket(self, bucket_name: str) -> bool:
+        """
+        Delete a bucket from S3 storage.
+
+        Args:
+            bucket_name: Bucket name to delete
+
+        Returns:
+            True if successful, False otherwise
+        """
+        pass

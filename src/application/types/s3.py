@@ -73,6 +73,27 @@ class S3StorageActions(StorageAction):
             logger.error(f"Failed to create bucket '{bucket_name}': {e}")
             return False
 
+    def delete_bucket(self, bucket_name: str) -> bool:
+        """
+        Delete a bucket from S3 storage (including clearing any remaining objects inside).
+
+        Args:
+            bucket_name: Name of the bucket to delete
+
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            files = self.list_files(bucket_name)
+            for file_name in files:
+                self.delete_file(file_name, bucket_name)
+            self.s3_client.delete_bucket(Bucket=bucket_name)
+            logger.info(f"Successfully deleted bucket '{bucket_name}'")
+            return True
+        except ClientError as e:
+            logger.error(f"Failed to delete bucket '{bucket_name}': {e}")
+            return False
+
     def upload_fileobj(
             self,
             file_obj: BinaryIO,

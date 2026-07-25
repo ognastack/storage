@@ -308,3 +308,44 @@ class DatabaseEngine:
             raise FileNotFoundError(f"File {file_name} not found or unauthorized")
 
         return True
+
+    def delete_bucket(self, bucket_name: str, owner_id: uuid.UUID):
+        mutation = """
+            mutation DeleteBucket($name: String!, $owner: uuid!) {
+              delete_storage_object(where: {
+                bucket: {
+                  name: {_eq: $name},
+                  owner: {_eq: $owner}
+                }
+              }) {
+                affected_rows
+              }
+              delete_storage_bucket(where: {
+                name: {_eq: $name},
+                owner: {_eq: $owner}
+              }) {
+                affected_rows
+              }
+            }
+        """
+
+        variables = {
+            "name": bucket_name,
+            "owner": str(owner_id)
+        }
+
+        response = self.session.post(
+            self.graphql_endpoint,
+            json={'query': mutation, 'variables': variables},
+        )
+
+        result = response.json()
+        if "errors" in result:
+            raise Exception(f"Delete bucket failed: {result['errors']}")
+
+        affected_rows = result.get('data', {}).get('delete_storage_bucket', {}).get('affected_rows', 0)
+
+        if affected_rows == 0:
+            raise BucketNotFound(bucket_name)
+
+        return True

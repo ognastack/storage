@@ -150,4 +150,8 @@ class LocalStorageActions(StorageAction):
         """
         raise Exception('Not implemented')
 
+    def delete_bucket(self, bucket_name: str) -> bool:
+        """Delete a bucket from storage."""
+        raise Exception('Not implemented')
+
 
