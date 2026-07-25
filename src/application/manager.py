@@ -101,7 +101,8 @@ class StorageManager:
 
         logger.info(store_file)
 
-        file_path = f"/tmp/{str(current_user)}"
+        # Unique per-request file path prevents static path collisions on download
+        file_path = f"/tmp/{str(current_user)}_{uuid.uuid4().hex[:8]}_{file_name}"
 
         self.storage.download_file(
             object_name=file_name,
