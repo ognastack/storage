@@ -49,6 +49,15 @@ def create_application() -> FastAPI:
     # Include routers
     app.include_router(api_router)
 
+    @app.get("/health", tags=["health"])
+    async def root_health():
+        return {
+            "status": "healthy",
+            "service": settings.PROJECT_NAME,
+            "version": settings.VERSION,
+            "environment": settings.ENVIRONMENT
+        }
+
     return app
 
 
