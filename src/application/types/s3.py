@@ -82,8 +82,11 @@ class S3StorageActions(StorageAction):
             try:
                 self.s3_client.create_bucket(**create_kwargs)
             except ClientError as e:
-                err_code = e.response.get('Error', {}).get('Code', '')
-                if err_code in ('LocationConstraintConflict', 'InvalidLocationConstraint') or 'LocationConstraint' in str(e):
+                err_code = str(e.response.get('Error', {}).get('Code', ''))
+                if err_code in ('BucketAlreadyOwnedByYou', 'BucketAlreadyExists'):
+                    logger.info(f"Bucket '{bucket_name}' already exists ({err_code})")
+                    return True
+                elif err_code in ('LocationConstraintConflict', 'InvalidLocationConstraint') or 'LocationConstraint' in str(e):
                     logger.warning(f"Location constraint mismatch on create_bucket ({e}). Retrying with alternate constraint config...")
                     if 'CreateBucketConfiguration' in create_kwargs:
                         del create_kwargs['CreateBucketConfiguration']
@@ -97,7 +100,7 @@ class S3StorageActions(StorageAction):
             return True
         except ClientError as e:
             logger.error(f"Failed to create bucket '{bucket_name}': {e}")
-            return False
+            raise e
 
     def delete_bucket(self, bucket_name: str) -> bool:
         """
