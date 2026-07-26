@@ -23,6 +23,9 @@ class Settings(BaseSettings):
     S3_ACCESS_KEY: str = ''
     S3_ENDPOINT_URL: str = ''
     S3_SECRET_KEY: str = ''
+    S3_REGION: Optional[str] = None
+    AWS_REGION: Optional[str] = None
+    AWS_DEFAULT_REGION: Optional[str] = None
 
     # Database
     DATABASE_URL: str = ''

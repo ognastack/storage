@@ -19,18 +19,27 @@ class S3StorageActions(StorageAction):
             endpoint_url: Optional[str] = None,
             access_key: Optional[str] = None,
             secret_key: Optional[str] = None,
-            region: str = "us-east-1"
+            region: Optional[str] = None
     ):
         """
         Initialize S3 storage service.
 
         Args:
-            endpoint_url: S3-compatible endpoint (e.g., MinIO, DigitalOcean Spaces)
+            endpoint_url: S3-compatible endpoint (e.g., MinIO, Hetzner, DigitalOcean Spaces)
             access_key: Access key ID
             secret_key: Secret access key
-            bucket_name: Name of the bucket to use
-            region: AWS region
+            region: AWS / S3 region
         """
+        region_name = (
+            region
+            or settings.S3_REGION
+            or settings.AWS_REGION
+            or settings.AWS_DEFAULT_REGION
+            or os.getenv('AWS_REGION')
+            or os.getenv('AWS_DEFAULT_REGION')
+            or "us-east-1"
+        )
+        self.region = region_name
 
         # Initialize S3 client
         self.s3_client = boto3.client(
@@ -38,7 +47,7 @@ class S3StorageActions(StorageAction):
             endpoint_url=endpoint_url,
             aws_access_key_id=access_key or os.getenv('AWS_ACCESS_KEY_ID'),
             aws_secret_access_key=secret_key or os.getenv('AWS_SECRET_ACCESS_KEY'),
-            region_name=region
+            region_name=self.region
         )
 
     def create_bucket(self, bucket_name: str, acl: str = 'private') -> bool:
@@ -63,11 +72,28 @@ class S3StorageActions(StorageAction):
                     raise
 
             # Create the bucket
-            self.s3_client.create_bucket(
-                Bucket=bucket_name,
-                ACL=acl
-            )
-            logger.info(f"Successfully created bucket '{bucket_name}' with ACL '{acl}'")
+            create_kwargs = {
+                'Bucket': bucket_name,
+                'ACL': acl
+            }
+            if self.region and self.region != 'us-east-1':
+                create_kwargs['CreateBucketConfiguration'] = {'LocationConstraint': self.region}
+
+            try:
+                self.s3_client.create_bucket(**create_kwargs)
+            except ClientError as e:
+                err_code = e.response.get('Error', {}).get('Code', '')
+                if err_code in ('LocationConstraintConflict', 'InvalidLocationConstraint') or 'LocationConstraint' in str(e):
+                    logger.warning(f"Location constraint mismatch on create_bucket ({e}). Retrying with alternate constraint config...")
+                    if 'CreateBucketConfiguration' in create_kwargs:
+                        del create_kwargs['CreateBucketConfiguration']
+                    else:
+                        create_kwargs['CreateBucketConfiguration'] = {'LocationConstraint': self.region}
+                    self.s3_client.create_bucket(**create_kwargs)
+                else:
+                    raise
+
+            logger.info(f"Successfully created bucket '{bucket_name}' in region '{self.region}' with ACL '{acl}'")
             return True
         except ClientError as e:
             logger.error(f"Failed to create bucket '{bucket_name}': {e}")

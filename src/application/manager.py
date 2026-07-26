@@ -26,7 +26,8 @@ class StorageManager:
         self.storage: StorageAction = S3StorageActions(
             endpoint_url=settings.S3_ENDPOINT_URL,
             access_key=settings.S3_ACCESS_KEY,
-            secret_key=settings.S3_SECRET_KEY
+            secret_key=settings.S3_SECRET_KEY,
+            region=settings.S3_REGION or settings.AWS_REGION or settings.AWS_DEFAULT_REGION
         ) if settings.STORAGE_TYPE == "S3" else LocalStorageActions()
         self.engine = DatabaseEngine(token=user_token)
 
