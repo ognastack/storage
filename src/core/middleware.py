@@ -40,8 +40,14 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
         # Calculate processing time
         process_time = time.time() - start_time
 
-        # Add request ID to response headers
+        # Add request ID and defensive security headers to response
         response.headers["X-Request-ID"] = request_id
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["Referrer-Policy"] = "no-referrer"
+        response.headers["X-XSS-Protection"] = "0"
+        if request.url.path.startswith("/v1/buckets"):
+            response.headers["Cache-Control"] = "no-store"
 
         # Log response
         logger.info(

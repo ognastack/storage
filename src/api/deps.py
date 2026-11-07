@@ -22,13 +22,12 @@ def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(securit
             algorithms=[settings.ALGORITHM],
             audience="authenticated"
         )
-        user_id: str = payload.get("sub")
-        if user_id is None:
+        user_id: Optional[str] = payload.get("sub")
+        if not user_id:
             raise UnauthorizedError("Could not validate credentials")
-    except JWTError:
+        return uuid.UUID(str(user_id))
+    except (JWTError, ValueError, TypeError):
         raise UnauthorizedError("Could not validate credentials")
-
-    return uuid.UUID(user_id)
 
 
 def get_request_id(request: Request) -> Optional[str]:

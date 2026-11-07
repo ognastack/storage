@@ -8,6 +8,18 @@ from src.core.logging import setup_logging
 from src.core.middleware import setup_middleware
 from src.errors.handlers import setup_exception_handlers
 from src.api.router import api_router
+from src.schema.response.storage import HealthResponse
+
+OPENAPI_TAGS = [
+    {
+        "name": "buckets",
+        "description": "Manage storage buckets and files (upload, replace, list, download, and delete) across S3 or Local storage backends."
+    },
+    {
+        "name": "health",
+        "description": "Health, liveness, and readiness probes for monitoring."
+    }
+]
 
 
 @asynccontextmanager
@@ -25,6 +37,7 @@ def create_application() -> FastAPI:
         title=settings.PROJECT_NAME,
         description=settings.PROJECT_DESCRIPTION,
         version=settings.VERSION,
+        openapi_tags=OPENAPI_TAGS,
         openapi_url=f"{settings.API_V1_STR}/openapi.json",
         docs_url="/docs" if settings.ENVIRONMENT == "development" else None,
         redoc_url="/redoc" if settings.ENVIRONMENT == "development" else None,
@@ -49,7 +62,13 @@ def create_application() -> FastAPI:
     # Include routers
     app.include_router(api_router)
 
-    @app.get("/health", tags=["health"])
+    @app.get(
+        "/health",
+        tags=["health"],
+        response_model=HealthResponse,
+        summary="Root health check",
+        description="Returns service health status, version, and active environment."
+    )
     async def root_health():
         return {
             "status": "healthy",
@@ -67,7 +86,7 @@ if __name__ == "__main__":
     import uvicorn
 
     uvicorn.run(
-        "app.main:app",
+        "main:app",
         host="0.0.0.0",
         port=8000,
         reload=settings.ENVIRONMENT == "development"
