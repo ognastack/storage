@@ -20,6 +20,7 @@ class DatabaseEngine:
     def __init__(self, token):
 
         self.graphql_endpoint = f"{settings.GRAPHQL_HOST}/{settings.GRAPHQL_ENDPOINT}"
+        self.timeout = settings.GRAPHQL_TIMEOUT_SECONDS
 
         self.session = requests.session()
 
@@ -46,7 +47,8 @@ class DatabaseEngine:
 
         response = self.session.post(
             self.graphql_endpoint,
-            json={'query': query, 'variables': variables}
+            json={'query': query, 'variables': variables},
+            timeout=self.timeout
         )
 
         result = response.json()
@@ -81,7 +83,8 @@ class DatabaseEngine:
 
         response = self.session.post(
             self.graphql_endpoint,
-            json={'query': query, 'variables': variables}
+            json={'query': query, 'variables': variables},
+            timeout=self.timeout
         )
 
         result = response.json()
@@ -112,7 +115,8 @@ class DatabaseEngine:
             self.graphql_endpoint,
             json={'query': mutation, 'variables': {
                 "name": bucket_data.name
-            }}
+            }},
+            timeout=self.timeout
         )
 
         result = response.json()
@@ -124,9 +128,10 @@ class DatabaseEngine:
 
     def get_file(self, bucket_name: str, file_name: str, owner_id: uuid.UUID) -> Optional[FileObject]:
         query = """
-            query GetFile($bucketName: String!, $fileName: String!) {
+            query GetFile($bucketName: String!, $fileName: String!, $owner: uuid!) {
               storage_bucket(where: {
-                name: {_eq: $bucketName}
+                name: {_eq: $bucketName},
+                owner: {_eq: $owner}
               }, limit: 1) {
                 objects(where: {name: {_eq: $fileName}}, limit: 1) {
                     bucket_id
@@ -140,12 +145,14 @@ class DatabaseEngine:
 
         variables = {
             "bucketName": bucket_name,
-            "fileName": file_name
+            "fileName": file_name,
+            "owner": str(owner_id)
         }
 
         response = self.session.post(
             self.graphql_endpoint,
-            json={'query': query, 'variables': variables}
+            json={'query': query, 'variables': variables},
+            timeout=self.timeout
         )
 
         result = response.json()
@@ -163,9 +170,12 @@ class DatabaseEngine:
 
     def get_files(self, bucket_name: str, owner_id: uuid.UUID) -> list[FileObject]:
         query = """
-            query GetFile($bucketName: String!) {
+            query GetFile($bucketName: String!, $owner: uuid!) {
               storage_bucket(
-                where: { name: { _eq: $bucketName } }
+                where: {
+                  name: { _eq: $bucketName },
+                  owner: { _eq: $owner }
+                }
                 limit: 1
               ) {
                 objects {
@@ -179,12 +189,14 @@ class DatabaseEngine:
         """
 
         variables = {
-            "bucketName": bucket_name
+            "bucketName": bucket_name,
+            "owner": str(owner_id)
         }
 
         response = self.session.post(
             self.graphql_endpoint,
-            json={'query': query, 'variables': variables}
+            json={'query': query, 'variables': variables},
+            timeout=self.timeout
         )
 
         result = response.json()
@@ -203,8 +215,8 @@ class DatabaseEngine:
 
     def get_buckets(self, owner_id: uuid.UUID) -> list[BaseBucket]:
         query = """
-            query GetFile {
-              storage_bucket {
+            query GetBuckets($owner: uuid!) {
+              storage_bucket(where: { owner: { _eq: $owner } }) {
                 owner
                 name
                 id
@@ -213,7 +225,8 @@ class DatabaseEngine:
         """
         response = self.session.post(
             self.graphql_endpoint,
-            json={'query': query}
+            json={'query': query, 'variables': {'owner': str(owner_id)}},
+            timeout=self.timeout
         )
 
         result = response.json()
@@ -263,7 +276,8 @@ class DatabaseEngine:
 
         response = self.session.post(
             self.graphql_endpoint,
-            json={'query': mutation, 'variables': variables}
+            json={'query': mutation, 'variables': variables},
+            timeout=self.timeout
         )
 
         result = response.json()
@@ -275,11 +289,12 @@ class DatabaseEngine:
 
     def delete_file(self, bucket_name: str, file_name: str, owner_id: uuid.UUID):
         mutation = """
-            mutation DeleteFile($fileName: String!, $bucketName: String!) {
+            mutation DeleteFile($fileName: String!, $bucketName: String!, $owner: uuid!) {
               delete_storage_object(where: {
                 name: {_eq: $fileName},
                 bucket: {
-                  name: {_eq: $bucketName}
+                  name: {_eq: $bucketName},
+                  owner: {_eq: $owner}
                 }
               }) {
                 affected_rows
@@ -289,12 +304,14 @@ class DatabaseEngine:
 
         variables = {
             "fileName": file_name,
-            "bucketName": bucket_name
+            "bucketName": bucket_name,
+            "owner": str(owner_id)
         }
 
         response = self.session.post(
             self.graphql_endpoint,
             json={'query': mutation, 'variables': variables},
+            timeout=self.timeout
         )
 
         result = response.json()
@@ -337,6 +354,7 @@ class DatabaseEngine:
         response = self.session.post(
             self.graphql_endpoint,
             json={'query': mutation, 'variables': variables},
+            timeout=self.timeout
         )
 
         result = response.json()

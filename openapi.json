@@ -1,0 +1,705 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Ogna Storage",
+    "description": "Ogna Stack Storage Service",
+    "version": "1.0.0"
+  },
+  "tags": [
+    {
+      "name": "buckets",
+      "description": "Manage storage buckets and files (upload, replace, list, download, and delete) across S3 or Local storage backends."
+    },
+    {
+      "name": "health",
+      "description": "Health, liveness, and readiness probes for monitoring."
+    }
+  ],
+  "paths": {
+    "/v1/buckets": {
+      "get": {
+        "tags": ["buckets"],
+        "summary": "List all buckets",
+        "description": "Returns all storage buckets accessible to the authenticated user.",
+        "operationId": "list_buckets_v1_buckets_get",
+        "security": [{"HTTPBearer": []}],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {"$ref": "#/components/schemas/Bucket"},
+                  "title": "Response List Buckets V1 Buckets Get"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid JWT bearer token",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/ErrorResponse"}
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["buckets"],
+        "summary": "Create a new bucket",
+        "description": "Creates a new bucket record in the database and provisions the underlying storage bucket (S3 or Local).",
+        "operationId": "create_bucket_v1_buckets_post",
+        "security": [{"HTTPBearer": []}],
+        "requestBody": {
+          "required": true,
+          "description": "Bucket configuration to create",
+          "content": {
+            "application/json": {
+              "schema": {"$ref": "#/components/schemas/Bucket"}
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/NewBucket"}
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid JWT bearer token",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/ErrorResponse"}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error in request payload",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/ErrorResponse"}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/buckets/{bucket_name}": {
+      "get": {
+        "tags": ["buckets"],
+        "summary": "Get bucket details",
+        "description": "Retrieves metadata for a specific bucket owned by the authenticated user.",
+        "operationId": "get_bucket_v1_buckets__bucket_name__get",
+        "security": [{"HTTPBearer": []}],
+        "parameters": [
+          {
+            "name": "bucket_name",
+            "in": "path",
+            "required": true,
+            "description": "Name of the target bucket",
+            "schema": {"type": "string", "title": "Bucket Name"}
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/Bucket"}
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid JWT bearer token",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/ErrorResponse"}
+              }
+            }
+          },
+          "404": {
+            "description": "Bucket not found",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/ErrorResponse"}
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": ["buckets"],
+        "summary": "Delete a bucket",
+        "description": "Deletes the bucket and all of its objects from both the storage backend and the database.",
+        "operationId": "delete_bucket_v1_buckets__bucket_name__delete",
+        "security": [{"HTTPBearer": []}],
+        "parameters": [
+          {
+            "name": "bucket_name",
+            "in": "path",
+            "required": true,
+            "description": "Name of the bucket to delete",
+            "schema": {"type": "string", "title": "Bucket Name"}
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/MainResponse"}
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid JWT bearer token",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/ErrorResponse"}
+              }
+            }
+          },
+          "404": {
+            "description": "Bucket not found",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/ErrorResponse"}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/buckets/{bucket_name}/files": {
+      "get": {
+        "tags": ["buckets"],
+        "summary": "List files in a bucket",
+        "description": "Returns metadata for all files stored inside the specified bucket.",
+        "operationId": "list_files_v1_buckets__bucket_name__files_get",
+        "security": [{"HTTPBearer": []}],
+        "parameters": [
+          {
+            "name": "bucket_name",
+            "in": "path",
+            "required": true,
+            "description": "Name of the bucket",
+            "schema": {"type": "string", "title": "Bucket Name"}
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {"$ref": "#/components/schemas/FileObject"},
+                  "title": "Response List Files V1 Buckets  Bucket Name  Files Get"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid JWT bearer token",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/ErrorResponse"}
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["buckets"],
+        "summary": "Upload a new file to a bucket",
+        "description": "Uploads a file using multipart/form-data. Uses the uploaded file's filename as the object key and returns a presigned download URL and file ID.",
+        "operationId": "upload_file_v1_buckets__bucket_name__files_post",
+        "security": [{"HTTPBearer": []}],
+        "parameters": [
+          {
+            "name": "bucket_name",
+            "in": "path",
+            "required": true,
+            "description": "Name of the destination bucket",
+            "schema": {"type": "string", "title": "Bucket Name"}
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {"$ref": "#/components/schemas/Body_upload_file"}
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/FileAccepted"}
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid JWT bearer token",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/ErrorResponse"}
+              }
+            }
+          },
+          "404": {
+            "description": "Bucket not found",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/ErrorResponse"}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/buckets/{bucket_name}/files/{file_name}": {
+      "put": {
+        "tags": ["buckets"],
+        "summary": "Upload or replace a file by name",
+        "description": "Uploads or overwrites a file at the specified `{file_name}` key inside the bucket and returns a presigned URL and file ID.",
+        "operationId": "replace_file_v1_buckets__bucket_name__files__file_name__put",
+        "security": [{"HTTPBearer": []}],
+        "parameters": [
+          {
+            "name": "bucket_name",
+            "in": "path",
+            "required": true,
+            "description": "Name of the target bucket",
+            "schema": {"type": "string", "title": "Bucket Name"}
+          },
+          {
+            "name": "file_name",
+            "in": "path",
+            "required": true,
+            "description": "Target file name / object key in the bucket",
+            "schema": {"type": "string", "title": "File Name"}
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {"$ref": "#/components/schemas/Body_replace_file"}
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/FileAccepted"}
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid JWT bearer token",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/ErrorResponse"}
+              }
+            }
+          },
+          "404": {
+            "description": "Bucket not found",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/ErrorResponse"}
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": ["buckets"],
+        "summary": "Download a file",
+        "description": "Downloads the specified file from the storage backend and streams it as a file attachment.",
+        "operationId": "get_file_v1_buckets__bucket_name__files__file_name__get",
+        "security": [{"HTTPBearer": []}],
+        "parameters": [
+          {
+            "name": "bucket_name",
+            "in": "path",
+            "required": true,
+            "description": "Name of the bucket containing the file",
+            "schema": {"type": "string", "title": "Bucket Name"}
+          },
+          {
+            "name": "file_name",
+            "in": "path",
+            "required": true,
+            "description": "Name of the file to download",
+            "schema": {"type": "string", "title": "File Name"}
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Binary file stream",
+            "content": {
+              "application/octet-stream": {
+                "schema": {"type": "string", "format": "binary"}
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid JWT bearer token",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/ErrorResponse"}
+              }
+            }
+          },
+          "404": {
+            "description": "File or bucket not found",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/ErrorResponse"}
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": ["buckets"],
+        "summary": "Delete a file",
+        "description": "Deletes a file from both the storage backend and the database.",
+        "operationId": "delete_file_v1_buckets__bucket_name__files__file_name__delete",
+        "security": [{"HTTPBearer": []}],
+        "parameters": [
+          {
+            "name": "bucket_name",
+            "in": "path",
+            "required": true,
+            "description": "Name of the bucket containing the file",
+            "schema": {"type": "string", "title": "Bucket Name"}
+          },
+          {
+            "name": "file_name",
+            "in": "path",
+            "required": true,
+            "description": "Name of the file to delete",
+            "schema": {"type": "string", "title": "File Name"}
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/MainResponse"}
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid JWT bearer token",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/ErrorResponse"}
+              }
+            }
+          },
+          "404": {
+            "description": "File not found",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/ErrorResponse"}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/health": {
+      "get": {
+        "tags": ["health"],
+        "summary": "Service health check",
+        "description": "Returns service health status, version, and environment details.",
+        "operationId": "health_check_v1_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/HealthResponse"}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/health/live": {
+      "get": {
+        "tags": ["health"],
+        "summary": "Liveness probe",
+        "description": "Kubernetes/container liveness check indicating the process is running.",
+        "operationId": "liveness_check_v1_health_live_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/HealthResponse"}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/health/ready": {
+      "get": {
+        "tags": ["health"],
+        "summary": "Readiness probe",
+        "description": "Kubernetes/container readiness check indicating the service is ready to accept traffic.",
+        "operationId": "readiness_check_v1_health_ready_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/HealthResponse"}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/health": {
+      "get": {
+        "tags": ["health"],
+        "summary": "Root health check",
+        "description": "Returns service health status, version, and active environment.",
+        "operationId": "root_health_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/HealthResponse"}
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Bucket": {
+        "type": "object",
+        "required": ["name"],
+        "title": "Bucket",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 63,
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._-]{1,61}[a-zA-Z0-9]$",
+            "title": "Name",
+            "description": "Unique bucket name (3-63 alphanumeric, dot, underscore, or hyphen characters)",
+            "examples": ["my-assets-bucket"]
+          },
+          "public": {
+            "type": "boolean",
+            "title": "Public",
+            "description": "Whether the bucket is publicly accessible",
+            "default": false,
+            "examples": [false]
+          },
+          "id": {
+            "anyOf": [{"type": "string", "format": "uuid"}, {"type": "null"}],
+            "title": "Id",
+            "description": "UUID of the bucket"
+          },
+          "owner": {
+            "anyOf": [{"type": "string", "format": "uuid"}, {"type": "null"}],
+            "title": "Owner",
+            "description": "UUID of the bucket owner"
+          }
+        }
+      },
+      "FileObject": {
+        "type": "object",
+        "title": "FileObject",
+        "properties": {
+          "bucket_id": {
+            "anyOf": [{"type": "string", "format": "uuid"}, {"type": "null"}],
+            "title": "Bucket Id",
+            "description": "UUID of the bucket containing the file"
+          },
+          "id": {
+            "anyOf": [{"type": "string", "format": "uuid"}, {"type": "null"}],
+            "title": "Id",
+            "description": "UUID of the file record"
+          },
+          "last_modified": {
+            "anyOf": [{"type": "string"}, {"type": "null"}],
+            "title": "Last Modified",
+            "description": "ISO-8601 timestamp when the file was last modified",
+            "examples": ["2026-11-07T10:00:00+00:00"]
+          },
+          "name": {
+            "anyOf": [{"type": "string"}, {"type": "null"}],
+            "title": "Name",
+            "description": "File name / object key in the bucket",
+            "examples": ["report.pdf"]
+          }
+        }
+      },
+      "MainResponse": {
+        "type": "object",
+        "title": "MainResponse",
+        "properties": {
+          "accepted": {
+            "type": "boolean",
+            "title": "Accepted",
+            "description": "Indicates whether the request was accepted and processed",
+            "default": true
+          }
+        }
+      },
+      "NewBucket": {
+        "type": "object",
+        "title": "NewBucket",
+        "properties": {
+          "accepted": {
+            "type": "boolean",
+            "title": "Accepted",
+            "description": "Indicates whether the request was accepted and processed",
+            "default": true
+          }
+        }
+      },
+      "FileAccepted": {
+        "type": "object",
+        "required": ["url", "file_id"],
+        "title": "FileAccepted",
+        "properties": {
+          "accepted": {
+            "type": "boolean",
+            "title": "Accepted",
+            "description": "Indicates whether the request was accepted and processed",
+            "default": true
+          },
+          "url": {
+            "type": "string",
+            "title": "Url",
+            "description": "Presigned URL to access or download the uploaded file",
+            "examples": ["https://s3.example.com/bucket-id/report.pdf?X-Amz-Signature=..."]
+          },
+          "file_id": {
+            "type": "string",
+            "title": "File Id",
+            "description": "Unique identifier of the stored file record",
+            "examples": ["550e8400-e29b-41d4-a716-446655440000"]
+          }
+        }
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "required": ["message"],
+        "title": "ErrorResponse",
+        "properties": {
+          "error": {
+            "type": "boolean",
+            "title": "Error",
+            "description": "Always true when an error occurs",
+            "default": true
+          },
+          "message": {
+            "type": "string",
+            "title": "Message",
+            "description": "Human-readable error message",
+            "examples": ["Resource not found"]
+          },
+          "details": {
+            "anyOf": [{"type": "object"}, {"type": "null"}],
+            "title": "Details",
+            "description": "Optional additional error context"
+          },
+          "request_id": {
+            "anyOf": [{"type": "string"}, {"type": "null"}],
+            "title": "Request Id",
+            "description": "Request correlation ID"
+          }
+        }
+      },
+      "HealthResponse": {
+        "type": "object",
+        "required": ["status"],
+        "title": "HealthResponse",
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "description": "Current health status of the service",
+            "examples": ["healthy"]
+          },
+          "service": {
+            "anyOf": [{"type": "string"}, {"type": "null"}],
+            "title": "Service",
+            "description": "Service name",
+            "examples": ["Ogna Storage"]
+          },
+          "version": {
+            "anyOf": [{"type": "string"}, {"type": "null"}],
+            "title": "Version",
+            "description": "Service version",
+            "examples": ["1.0.0"]
+          },
+          "environment": {
+            "anyOf": [{"type": "string"}, {"type": "null"}],
+            "title": "Environment",
+            "description": "Deployment environment",
+            "examples": ["development"]
+          }
+        }
+      },
+      "Body_upload_file": {
+        "type": "object",
+        "required": ["file"],
+        "title": "Body_upload_file",
+        "properties": {
+          "file": {
+            "type": "string",
+            "format": "binary",
+            "title": "File",
+            "description": "Binary file to upload"
+          }
+        }
+      },
+      "Body_replace_file": {
+        "type": "object",
+        "required": ["file"],
+        "title": "Body_replace_file",
+        "properties": {
+          "file": {
+            "type": "string",
+            "format": "binary",
+            "title": "File",
+            "description": "Binary file content to store at file_name"
+          }
+        }
+      }
+    },
+    "securitySchemes": {
+      "HTTPBearer": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "Bearer JWT token issued by GoTrue / Auth service"
+      }
+    }
+  }
+}

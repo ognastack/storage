@@ -36,19 +36,26 @@ help:
 run:
 	@echo "Starting FastAPI server locally..."
 	@echo "Make sure you have installed dependencies: make install"
-	@echo "Server will be available at http://localhost:8000"
-	@echo "API docs at http://localhost:8000/docs"
+	@echo "Server will be available at http://localhost:8100"
+	@echo "Swagger UI at http://localhost:8100/docs"
+	@echo "ReDoc at http://localhost:8100/redoc"
+	@echo "OpenAPI JSON at http://localhost:8100/v1/openapi.json"
 	@echo ""
 	uvicorn main:app --host 0.0.0.0 --port 8100 --reload
+
+openapi:
+	@echo "Exporting OpenAPI specification to openapi.json..."
+	python3 -c 'import json; from main import app; f=open("openapi.json", "w"); json.dump(app.openapi(), f, indent=2); f.close()'
+	@echo "Saved openapi.json"
 
 # Build targets
 build:
 	@echo "Building development image..."
-	docker build --target development -t $(IMAGE_NAME):dev .
+	docker build -f dockerfile --target development -t $(IMAGE_NAME):dev .
 
 build-prod:
 	@echo "Building production image..."
-	docker build --target production -t $(IMAGE_NAME):prod .
+	docker build -f dockerfile --target production -t $(IMAGE_NAME):prod .
 
 # Network setup
 network:
