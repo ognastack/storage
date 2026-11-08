@@ -16,6 +16,10 @@ class Settings(BaseSettings):
     API_V1_STR: str = "/v1"
 
     # Security & Upload limits
+    # Secret of the short-lived HS256 token the OGNA gateway forwards after checking
+    # the caller with the identity provider (Zitadel). GOTRUE_JWT_SECRET is still read
+    # for older deployments that set only that name.
+    OGNA_INTERNAL_JWT_SECRET: str = ""
     GOTRUE_JWT_SECRET: str = DEFAULT_INSECURE_JWT_SECRET
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     ALGORITHM: str = "HS256"
@@ -61,12 +65,16 @@ class Settings(BaseSettings):
             return v
         raise ValueError(v)
 
+    @property
+    def JWT_SECRET(self) -> str:
+        return self.OGNA_INTERNAL_JWT_SECRET or self.GOTRUE_JWT_SECRET
+
     @model_validator(mode="after")
     def validate_production_secrets(self):
         if self.ENVIRONMENT.lower() != "development":
-            if not self.GOTRUE_JWT_SECRET or self.GOTRUE_JWT_SECRET == DEFAULT_INSECURE_JWT_SECRET:
+            if not self.JWT_SECRET or self.JWT_SECRET == DEFAULT_INSECURE_JWT_SECRET:
                 raise ValueError(
-                    "GOTRUE_JWT_SECRET must be set to a strong secret in non-development environments"
+                    "OGNA_INTERNAL_JWT_SECRET must be set to a strong secret in non-development environments"
                 )
         return self
 

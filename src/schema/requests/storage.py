@@ -15,7 +15,7 @@ class Bucket(BaseModel):
     )
     public: bool = Field(default=False, description="Whether the bucket is publicly accessible", examples=[False])
     id: Optional[uuid.UUID] = Field(default=None, description="UUID of the bucket")
-    owner: Optional[uuid.UUID] = Field(default=None, description="UUID of the bucket owner")
+    owner: Optional[str] = Field(default=None, description="Id of the bucket owner (identity-provider user id)")
 
 
 class FileObject(BaseModel):

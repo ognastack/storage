@@ -1,6 +1,5 @@
 import logging
 import os
-import uuid
 from typing import Annotated
 from fastapi import File, APIRouter, UploadFile, status, Depends, Path, Body
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
@@ -18,7 +17,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
-security = HTTPBearer(description="Bearer JWT token issued by GoTrue / Auth service")
+security = HTTPBearer(description="Bearer token: the short-lived internal JWT the OGNA gateway issues after checking the caller with Zitadel")
 
 
 def _cleanup_temp_file(path: str) -> None:
@@ -53,7 +52,7 @@ COMMON_AUTH_RESPONSES = {
 )
 async def create_bucket(
         bucket_data: Annotated[Bucket, Body(description="Bucket configuration to create")],
-        user_id: uuid.UUID = Depends(get_current_user),
+        user_id: str = Depends(get_current_user),
         credentials: HTTPAuthorizationCredentials = Depends(security)
 ):
     manager = StorageManager(bucket_name=bucket_data.name, user_token=credentials.credentials)
@@ -73,7 +72,7 @@ async def create_bucket(
     responses=COMMON_AUTH_RESPONSES
 )
 async def list_buckets(
-        user_id: uuid.UUID = Depends(get_current_user),
+        user_id: str = Depends(get_current_user),
         credentials: HTTPAuthorizationCredentials = Depends(security)
 ):
     manager = StorageManager(bucket_name='', user_token=credentials.credentials)
@@ -96,7 +95,7 @@ async def list_buckets(
 )
 async def get_bucket(
         bucket_name: Annotated[str, Path(description="Name of the target bucket")],
-        user_id: uuid.UUID = Depends(get_current_user),
+        user_id: str = Depends(get_current_user),
         credentials: HTTPAuthorizationCredentials = Depends(security)
 ):
     manager = StorageManager(bucket_name=bucket_name, user_token=credentials.credentials)
@@ -119,7 +118,7 @@ async def get_bucket(
 )
 async def delete_bucket(
         bucket_name: Annotated[str, Path(description="Name of the bucket to delete")],
-        user_id: uuid.UUID = Depends(get_current_user),
+        user_id: str = Depends(get_current_user),
         credentials: HTTPAuthorizationCredentials = Depends(security)
 ):
     deletion = StorageManager(bucket_name=bucket_name, user_token=credentials.credentials).delete_bucket(
@@ -145,7 +144,7 @@ async def delete_bucket(
 async def upload_file(
         file: Annotated[UploadFile, File(description="Binary file to upload")],
         bucket_name: Annotated[str, Path(description="Name of the destination bucket")],
-        user_id: uuid.UUID = Depends(get_current_user),
+        user_id: str = Depends(get_current_user),
         credentials: HTTPAuthorizationCredentials = Depends(security)
 ):
     manager = StorageManager(bucket_name=bucket_name, user_token=credentials.credentials)
@@ -173,7 +172,7 @@ async def upload_file(
 )
 async def list_files(
         bucket_name: Annotated[str, Path(description="Name of the bucket")],
-        user_id: uuid.UUID = Depends(get_current_user),
+        user_id: str = Depends(get_current_user),
         credentials: HTTPAuthorizationCredentials = Depends(security)
 ):
     manager = StorageManager(bucket_name=bucket_name, user_token=credentials.credentials)
@@ -198,7 +197,7 @@ async def replace_file(
         file: Annotated[UploadFile, File(description="Binary file content to store at file_name")],
         bucket_name: Annotated[str, Path(description="Name of the target bucket")],
         file_name: Annotated[str, Path(description="Target file name / object key in the bucket")],
-        user_id: uuid.UUID = Depends(get_current_user),
+        user_id: str = Depends(get_current_user),
         credentials: HTTPAuthorizationCredentials = Depends(security)
 ):
     manager = StorageManager(bucket_name=bucket_name, user_token=credentials.credentials)
@@ -238,7 +237,7 @@ async def replace_file(
 async def get_file(
         bucket_name: Annotated[str, Path(description="Name of the bucket containing the file")],
         file_name: Annotated[str, Path(description="Name of the file to download")],
-        user_id: uuid.UUID = Depends(get_current_user),
+        user_id: str = Depends(get_current_user),
         credentials: HTTPAuthorizationCredentials = Depends(security)
 ):
     file_path = StorageManager(bucket_name=bucket_name, user_token=credentials.credentials).get_file(
@@ -270,7 +269,7 @@ async def get_file(
 async def delete_file(
         bucket_name: Annotated[str, Path(description="Name of the bucket containing the file")],
         file_name: Annotated[str, Path(description="Name of the file to delete")],
-        user_id: uuid.UUID = Depends(get_current_user),
+        user_id: str = Depends(get_current_user),
         credentials: HTTPAuthorizationCredentials = Depends(security)
 ):
     deletion = StorageManager(bucket_name=bucket_name, user_token=credentials.credentials).delete_file(

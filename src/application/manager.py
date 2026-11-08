@@ -70,7 +70,7 @@ class StorageManager:
                 f"File exceeds maximum allowed size of {settings.MAX_UPLOAD_SIZE_MB} MB"
             )
 
-    def create_bucket(self, bucket_data: Bucket, current_user: uuid.UUID) -> NewBucket:
+    def create_bucket(self, bucket_data: Bucket, current_user: str) -> NewBucket:
         logger.info(f"Creating bucket {bucket_data.name}")
         bucket = self.engine.create_bucket(
             bucket_data=bucket_data,
@@ -79,7 +79,7 @@ class StorageManager:
         complete = self.storage.create_bucket(bucket_name=str(bucket.id))
         return NewBucket(accepted=complete)
 
-    def get_bucket(self, current_user: uuid.UUID) -> Bucket:
+    def get_bucket(self, current_user: str) -> Bucket:
         logger.info(f"Getting bucket {self.bucket_name}")
         bucket = self.engine.get_bucket_by_id_user(
             bucket_name=self.bucket_name,
@@ -89,7 +89,7 @@ class StorageManager:
             raise BucketNotFound(self.bucket_name)
         return bucket
 
-    def delete_bucket(self, current_user: uuid.UUID) -> bool:
+    def delete_bucket(self, current_user: str) -> bool:
         logger.info(f"Deleting bucket {self.bucket_name}")
         bucket = self.engine.get_bucket_by_id_user(
             bucket_name=self.bucket_name,
@@ -105,7 +105,7 @@ class StorageManager:
     def upload_file(
             self,
             file: UploadFile,
-            current_user: uuid.UUID,
+            current_user: str,
             file_name: Optional[str] = None
     ) -> tuple[str, str]:
         object_name = validate_safe_name(file_name or file.filename, "file_name")
@@ -137,7 +137,7 @@ class StorageManager:
             bucket_name=str(bucket.id)
         ), str(create_file_response['id'])
 
-    def delete_file(self, file_name: str, current_user: uuid.UUID) -> bool:
+    def delete_file(self, file_name: str, current_user: str) -> bool:
         safe_file_name = validate_safe_name(file_name, "file_name")
         logger.info(f"Deleting file {safe_file_name} from bucket {self.bucket_name}")
         search_file = self.engine.get_file(
@@ -157,7 +157,7 @@ class StorageManager:
 
         return self.storage.delete_file(object_name=safe_file_name, bucket_name=str(search_file.bucket_id))
 
-    def get_file(self, file_name: str, current_user: uuid.UUID):
+    def get_file(self, file_name: str, current_user: str):
         safe_file_name = validate_safe_name(file_name, "file_name")
         logger.info(f"Getting file {safe_file_name} from bucket {self.bucket_name}")
 
@@ -196,14 +196,14 @@ class StorageManager:
 
         return file_path
 
-    def get_files(self, current_user: uuid.UUID) -> list[FileObject]:
+    def get_files(self, current_user: str) -> list[FileObject]:
 
         return self.engine.get_files(
             bucket_name=self.bucket_name,
             owner_id=current_user
         )
 
-    def get_buckets(self, current_user: uuid.UUID):
+    def get_buckets(self, current_user: str):
         results = self.engine.get_buckets(
             owner_id=current_user
         )
