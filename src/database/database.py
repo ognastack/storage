@@ -1,5 +1,4 @@
 import logging
-import uuid
 import requests
 from typing import Optional
 
@@ -62,9 +61,9 @@ class DatabaseEngine:
 
         return BaseBucket(**data[0]) if data else None
 
-    def get_bucket_by_id_user(self, bucket_name: str, owner_id: uuid.UUID) -> Optional[BaseBucket]:
+    def get_bucket_by_id_user(self, bucket_name: str, owner_id: str) -> Optional[BaseBucket]:
         query = """
-            query GetBucket($name: String!, $owner: uuid!) {
+            query GetBucket($name: String!, $owner: String!) {
               storage_bucket(where: {
                 name: {_eq: $name}, 
                 owner: {_eq: $owner}
@@ -98,7 +97,7 @@ class DatabaseEngine:
 
         return BaseBucket(**data[0]) if data else None
 
-    def create_bucket(self, bucket_data: BaseBucket, user_id: uuid.UUID) -> Optional[BaseBucket]:
+    def create_bucket(self, bucket_data: BaseBucket, user_id: str) -> Optional[BaseBucket]:
         mutation = """
         mutation CreateBucket($name: String!) {
           insert_storage_bucket_one(object: {
@@ -126,9 +125,9 @@ class DatabaseEngine:
         data = result.get('data', {}).get('insert_storage_bucket_one')
         return BaseBucket(**data) if data else None
 
-    def get_file(self, bucket_name: str, file_name: str, owner_id: uuid.UUID) -> Optional[FileObject]:
+    def get_file(self, bucket_name: str, file_name: str, owner_id: str) -> Optional[FileObject]:
         query = """
-            query GetFile($bucketName: String!, $fileName: String!, $owner: uuid!) {
+            query GetFile($bucketName: String!, $fileName: String!, $owner: String!) {
               storage_bucket(where: {
                 name: {_eq: $bucketName},
                 owner: {_eq: $owner}
@@ -168,9 +167,9 @@ class DatabaseEngine:
 
         return None
 
-    def get_files(self, bucket_name: str, owner_id: uuid.UUID) -> list[FileObject]:
+    def get_files(self, bucket_name: str, owner_id: str) -> list[FileObject]:
         query = """
-            query GetFile($bucketName: String!, $owner: uuid!) {
+            query GetFile($bucketName: String!, $owner: String!) {
               storage_bucket(
                 where: {
                   name: { _eq: $bucketName },
@@ -213,9 +212,9 @@ class DatabaseEngine:
                 results.append(FileObject(**fdata))
         return results
 
-    def get_buckets(self, owner_id: uuid.UUID) -> list[BaseBucket]:
+    def get_buckets(self, owner_id: str) -> list[BaseBucket]:
         query = """
-            query GetBuckets($owner: uuid!) {
+            query GetBuckets($owner: String!) {
               storage_bucket(where: { owner: { _eq: $owner } }) {
                 owner
                 name
@@ -242,7 +241,7 @@ class DatabaseEngine:
             results.append(BaseBucket(**bucket))
         return results
 
-    def create_file(self, bucket_name: str, file_name: str, owner_id: uuid.UUID):
+    def create_file(self, bucket_name: str, file_name: str, owner_id: str):
         bucket_data = self.get_bucket_by_id_user(bucket_name, owner_id)
         if not bucket_data:
             raise BucketNotFound(bucket_name)
@@ -287,9 +286,9 @@ class DatabaseEngine:
 
         return result.get('data', {}).get('insert_storage_object_one')
 
-    def delete_file(self, bucket_name: str, file_name: str, owner_id: uuid.UUID):
+    def delete_file(self, bucket_name: str, file_name: str, owner_id: str):
         mutation = """
-            mutation DeleteFile($fileName: String!, $bucketName: String!, $owner: uuid!) {
+            mutation DeleteFile($fileName: String!, $bucketName: String!, $owner: String!) {
               delete_storage_object(where: {
                 name: {_eq: $fileName},
                 bucket: {
@@ -326,9 +325,9 @@ class DatabaseEngine:
 
         return True
 
-    def delete_bucket(self, bucket_name: str, owner_id: uuid.UUID):
+    def delete_bucket(self, bucket_name: str, owner_id: str):
         mutation = """
-            mutation DeleteBucket($name: String!, $owner: uuid!) {
+            mutation DeleteBucket($name: String!, $owner: String!) {
               delete_storage_object(where: {
                 bucket: {
                   name: {_eq: $name},
